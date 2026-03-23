@@ -1,6 +1,6 @@
 # Workflow Execution Engine
 
-A cron-based workflow execution engine for scheduling and running commands. This daemon-based system reads workflow configurations from a JSON file, executes them according to their cron schedules, and logs all output and metadata to SQLite database.
+A cron-based workflow execution engine for scheduling and running commands with a modern web UI for monitoring and management.
 
 ## Features
 
@@ -8,16 +8,129 @@ A cron-based workflow execution engine for scheduling and running commands. This
 - **Parallel Execution**: Multiple workflows can run concurrently
 - **Persistent Metadata**: All run history stored in SQLite database
 - **Detailed Logging**: Each workflow run gets its own timestamped log file
+- **Web UI**: Modern React-based dashboard for monitoring and managing workflows
+- **REST API**: Full-featured API for programmatic access
+- **Real-time Updates**: WebSocket support for live status updates
 - **Graceful Shutdown**: Handles SIGINT/SIGTERM for clean shutdown
 
-## Installation
+## Web UI
+
+The workflow engine includes a modern web-based interface for monitoring and managing your workflows.
+
+### Access URLs
+
+| Service | URL |
+|---------|-----|
+| Web UI (Frontend) | http://localhost:5173 |
+| API Server | http://localhost:8000 |
+| API Documentation | http://localhost:8000/docs |
+| WebSocket | ws://localhost:8000/ws |
+
+### UI Features
+
+#### Dashboard
+- **Status Cards**: Quick overview of total workflows, enabled workflows, total runs, success rate, and currently running tasks
+- **Activity Feed**: Real-time list of recent workflow executions with status indicators
+- **Auto-refresh**: Dashboard updates automatically via WebSocket when runs complete
+
+#### Workflows Page
+- List all configured workflows in a table format
+- View workflow name, schedule (cron), status (enabled/disabled), and next run time
+- **Run Now**: Manually trigger a workflow execution
+- Click workflow name to view detailed information
+
+#### Workflow Detail Page
+- View full workflow configuration (command, schedule, timeout, retries)
+- See workflow statistics (total runs, success/fail/timeout counts)
+- Enable or disable the workflow
+- Trigger manual runs
+
+#### Runs Page
+- View complete history of all workflow executions
+- **Filter by workflow name**
+- **Filter by status** (running, success, failed, timeout, retry)
+- **Pagination** for large datasets
+- Click any run to view details
+
+#### Run Detail Page
+- View run metadata (workflow, command, start/end time, duration, exit code)
+- **Log Viewer**: Full log output from the workflow execution
+- Status badge with color coding
+
+### Real-time Updates
+
+The UI receives real-time updates via WebSocket when:
+- A workflow run starts
+- A workflow run completes
+- Workflow configurations are reloaded
+
+---
+
+## Setup Guide
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+ (for frontend)
+- uv (Python package manager)
+
+### Full Setup (Recommended)
 
 ```bash
-# Clone the repository
+# 1. Clone the repository
+git clone <repository-url>
 cd workflow-execution-engine
 
-# Install dependencies using uv
+# 2. Install Python dependencies
 uv sync
+
+# 3. Install frontend dependencies
+cd frontend
+npm install
+cd ..
+
+# 4. Create your config.json (or use the example)
+cp config.example.json config.json  # If example exists
+
+# 5. Start the combined server (Engine + API)
+uv run python run_combined.py
+
+# 6. In a new terminal, start the frontend
+cd frontend && npm run dev
+```
+
+### Access the Application
+
+1. Open your browser to **http://localhost:5173**
+2. The API is available at **http://localhost:8000**
+3. API documentation at **http://localhost:8000/docs**
+
+---
+
+## Running Options
+
+### Option 1: Combined Mode (Recommended for Development)
+
+Runs both the workflow engine and API server in one process:
+
+```bash
+uv run python run_combined.py --port 8000 --config config.json
+```
+
+### Option 2: Engine Only
+
+Just the workflow scheduler without the web interface:
+
+```bash
+uv run python main.py --config config.json
+```
+
+### Option 3: API Only
+
+Run just the API server (useful if engine is running separately):
+
+```bash
+uv run python run_api.py --port 8000
 ```
 
 ## Configuration
@@ -136,7 +249,9 @@ Press `Ctrl+C` or send `SIGTERM` to gracefully shutdown the engine. It will wait
 
 ```
 workflow-execution-engine/
-├── main.py                 # Entry point
+├── main.py                 # Engine entry point
+├── run_combined.py         # Combined engine + API runner
+├── run_api.py              # API-only server
 ├── cli.py                  # CLI management tool
 ├── config.json             # Workflow definitions
 ├── pyproject.toml          # Project configuration
@@ -147,7 +262,32 @@ workflow-execution-engine/
 │   ├── executor.py         # Async command execution
 │   ├── database.py         # SQLite operations
 │   ├── logger.py           # Logging setup
-│   └── models.py           # Data models
+│   ├── models.py           # Data models
+│   └── api/                # FastAPI web interface
+│       ├── __init__.py
+│       ├── app.py          # FastAPI application factory
+│       ├── schemas.py      # Pydantic models
+│       ├── dependencies.py # Engine access
+│       ├── websocket.py    # WebSocket manager
+│       └── routes/
+│           ├── workflows.py
+│           ├── runs.py
+│           ├── stats.py
+│           └── logs.py
+├── frontend/               # React web UI
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── layout/     # Header, Sidebar, Layout
+│   │   │   ├── common/     # StatusBadge, Pagination
+│   │   │   ├── dashboard/  # StatusCard, ActivityFeed
+│   │   │   ├── workflows/  # WorkflowList, WorkflowCard
+│   │   │   ├── runs/       # RunList, RunFilters
+│   │   │   └── logs/       # LogViewer
+│   │   ├── pages/          # Dashboard, Workflows, Runs
+│   │   ├── hooks/          # useWebSocket
+│   │   └── services/       # API client
+│   ├── package.json
+│   └── vite.config.ts
 ├── data/
 │   ├── workflows.db        # SQLite database (auto-created)
 │   └── logs/               # Log files (auto-created)
@@ -156,6 +296,39 @@ workflow-execution-engine/
 │           └── {timestamp}.log
 └── README.md
 ```
+
+## API Reference
+
+### REST Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/workflows` | List all workflows |
+| GET | `/api/workflows/{name}` | Get workflow details with stats |
+| GET | `/api/workflows/{name}/schedule` | Get schedule information |
+| POST | `/api/workflows/{name}/run` | Trigger manual run |
+| PUT | `/api/workflows/{name}/enable` | Enable a workflow |
+| PUT | `/api/workflows/{name}/disable` | Disable a workflow |
+| GET | `/api/runs` | List runs (paginated, filterable) |
+| GET | `/api/runs/{id}` | Get specific run details |
+| GET | `/api/stats/engine` | Get engine status |
+| GET | `/api/stats/overview` | Get dashboard overview |
+| GET | `/api/stats/workflows/{name}` | Get workflow statistics |
+| GET | `/api/logs/{run_id}` | Get log content for a run |
+| WS | `/ws` | WebSocket for real-time updates |
+
+### WebSocket Events
+
+The WebSocket endpoint (`/ws`) broadcasts the following event types:
+
+| Event Type | Description |
+|------------|-------------|
+| `run_started` | A workflow run has started |
+| `run_completed` | A workflow run has finished |
+| `workflow_event` | Workflow added/removed/modified/enabled/disabled |
+| `stats_update` | Statistics have changed |
+
+---
 
 ## Database Schema
 
