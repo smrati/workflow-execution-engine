@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import api, { Run } from '../../services/api';
+import api, { Run } from '../services/api';
 import StatusBadge from '../components/common/StatusBadge';
 import LogViewer from '../components/logs/LogViewer';
 
@@ -13,22 +13,22 @@ export default function RunDetail() {
   useEffect(() => {
     const loadRun = async () => {
       try {
-      const data = await api.getRun(parseInt(id!));
-      setRun(data);
-    } catch (err) {
-      setError('Failed to load run');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-  loadRun();
+        const data = await api.getRun(parseInt(id!));
+        setRun(data);
+      } catch (err) {
+        setError('Failed to load run');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRun();
   }, [id]);
 
   if (loading) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
       </div>
     );
   }
@@ -48,6 +48,8 @@ export default function RunDetail() {
       </div>
     );
   }
+
+  const duration = run.duration_seconds ? `${run.duration_seconds.toFixed(2)}s` : 'N/A';
 
   return (
     <div>
@@ -87,24 +89,19 @@ export default function RunDetail() {
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-1">Ended</h3>
               <p className="text-sm text-gray-600">
-                {run.end_time
-                  ? new Date(run.end_time).toLocaleString()
-                  : 'Still running...'}
+                {run.end_time ? new Date(run.end_time).toLocaleString() : 'Still running...'}
               </p>
             </div>
 
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-1">Duration</h3>
-              <p className="text-sm text-gray-600">
-                {run.duration_seconds?.toFixed(2) : 0} : 's'}
-                {run.duration_seconds} : '-'} : 'N/A'}
-              </p>
+              <p className="text-sm text-gray-600">{duration}</p>
             </div>
 
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-1">Exit Code</h3>
               <p className="text-sm text-gray-600">
-                {run.exit_code ?? run.exit_code : 'N/A'}
+                {run.exit_code !== null && run.exit_code !== undefined ? run.exit_code : 'N/A'}
               </p>
             </div>
 

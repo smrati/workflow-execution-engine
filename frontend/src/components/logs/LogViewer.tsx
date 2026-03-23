@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-
 import api, { LogResponse } from '../../services/api';
 
 interface LogViewerProps {
@@ -7,8 +6,11 @@ interface LogViewerProps {
 }
 
 export default function LogViewer({ runId }: LogViewerProps) {
-  const [log, setLog] = useState<LogResponse | null>(  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(  useEffect(() => {
+  const [log, setLog] = useState<LogResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
     const fetchLog = async () => {
       try {
         setLoading(true);
@@ -27,41 +29,44 @@ export default function LogViewer({ runId }: LogViewerProps) {
 
   if (loading) {
     return (
-      <div className="animate-pulse">
- rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+      <div className="text-center py-4">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-500 mx-auto"></div>
+      </div>
     );
   }
+
   if (error) {
     return (
-      <div className="p-4 text-red-700">
-        <p>{error}</p>
+      <div className="p-4 text-red-600 bg-red-50 rounded">
+        {error}
       </div>
-    )
-  }
-  if (!log?.exists) {
-    return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <div className="px-4 py-5 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Run #{runId} Log
- </h3>
-        {!log.exists && (
-          <div className="py-8 text-center text-gray-500">
-            Log file not found
-          </div>
-        ) : (
-          <pre className="p-4 text-sm text-gray-500 bg-gray-50 rounded">
-            {log.log_file_path}
-          </pre>
-        )}
-      )}
     );
+  }
+
+  if (!log) {
     return (
-      <div className="bg-gray-900 rounded-lg font-mono p-4 overflow-auto max-h-96">
-        <pre className="p-4 text-gray-700 text-sm">
-          {log.content}
-        </pre>
+      <div className="p-4 text-gray-500">
+        No log data available
       </div>
+    );
+  }
+
+  if (!log.exists) {
+    return (
+      <div className="p-4 text-gray-500 bg-gray-50 rounded">
+        <p>Log file not found</p>
+        {log.log_file_path && (
+          <p className="text-xs mt-1 text-gray-400">{log.log_file_path}</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-96">
+      <pre className="text-sm text-gray-100 font-mono whitespace-pre-wrap">
+        {log.content || 'No output'}
+      </pre>
     </div>
   );
 }

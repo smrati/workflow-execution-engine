@@ -6,7 +6,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Optional, Callable, TYPE_CHECKING
 
 from croniter import croniter
 
@@ -16,10 +16,8 @@ from .logger import EngineLogger, WorkflowLogger
 from .models import RunStatus, Workflow, RunResult
 from .scheduler import Scheduler
 
-
-from .api.websocket import get_manager
-
-
+if TYPE_CHECKING:
+    from .api.websocket import ConnectionManager
 
 
 class Engine:
@@ -74,12 +72,18 @@ class Engine:
 
     async def _emit_event(self, event_type: str, data: dict) -> None:
         """Emit an event to all registered callbacks."""
+        # Lazy import to avoid circular dependency
+        from .api.websocket import get_manager
+
         # Also broadcast via WebSocket manager
-        manager = get_manager()
-        await manager.broadcast({
-            "type": event_type,
-            "data": data
-        })
+        try:
+            manager = get_manager()
+            await manager.broadcast({
+                "type": event_type,
+                "data": data
+            })
+        except Exception as e:
+            self.engine_logger.error(f"Error broadcasting to WebSocket: {e}")
 
         # Call registered callbacks
         for callback in self._event_callbacks:

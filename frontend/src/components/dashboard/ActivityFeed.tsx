@@ -16,31 +16,27 @@ export default function ActivityFeed({ runs, maxItems = 10 }: ActivityFeedProps)
         <Link
           key={run.id}
           to={`/runs/${run.id}`}
-          className="block p-3 hover:bg-gray-50 rounded-lg transition-colors"
+          className="block p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-gray-900">{run.workflow_name}</span>
             <StatusBadge status={run.status} size="sm" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                {run.workflow_name}
-              </p>
-              <p className="text-xs text-gray-500">
-                {run.command.length > 50 ? `${run.command.slice(0, 50)}...` : run.command}
-              </p>
-              <div className="text-xs text-gray-500">
-                {new Date(run.start_time).toLocaleString()}
-              </p>
-              {run.duration_seconds && (
-                <span className="text-xs text-gray-400">
-                  {run.duration_seconds.toFixed(2)}s
-                </span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span className="font-mono truncate max-w-xs">
+              {run.command.length > 50 ? `${run.command.slice(0, 50)}...` : run.command}
+            </span>
+            <div className="flex items-center gap-2">
+              <span>{new Date(run.start_time).toLocaleString()}</span>
+              {run.duration_seconds !== null && run.duration_seconds !== undefined && (
+                <span className="text-gray-400">({run.duration_seconds.toFixed(2)}s)</span>
               )}
-            </p>
-          ))}
+            </div>
+          </div>
         </Link>
       ))}
       {items.length === 0 && (
-        <p className="text-sm text-gray-500 text-center py-2">No recent activity</p>
+        <p className="text-sm text-gray-500 text-center py-4">No recent activity</p>
       )}
     </div>
   );
