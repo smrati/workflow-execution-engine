@@ -55,6 +55,11 @@ Create a `config.json` file in the project root (or specify a custom path):
 | `command` | string | Yes | Shell command to execute |
 | `cron` | string | Yes | Cron expression (standard 5-field format) |
 | `enabled` | boolean | No | Whether the workflow is active (default: true) |
+| `timeout` | integer | No | Timeout in seconds (default: none) |
+| `retry_count` | integer | No | Number of retries on failure (default: 0) |
+| `retry_delay` | integer | No | Delay between retries in seconds (default: 60) |
+| `working_dir` | string | No | Working directory for command execution |
+| `env` | object | No | Environment variables to set |
 
 ### Cron Expression Format
 
@@ -95,6 +100,34 @@ uv run python main.py --config my-config.json --interval 0.5
 | `--log-dir` | `-l` | data/logs | Path to log directory |
 | `--interval` | `-i` | 1.0 | Check interval in seconds |
 
+### CLI Management Tool
+
+```bash
+# Show engine status
+uv run python cli.py status
+
+# Show run history
+uv run python cli.py history
+
+# Filter history by workflow
+uv run python cli.py history -w hello-world
+
+# Filter by status
+uv run python cli.py history -s failed
+
+# Show logs for a specific run
+uv run python cli.py logs 123
+
+# Show workflow statistics
+uv run python cli.py stats hello-world
+
+# List all workflows
+uv run python cli.py list
+
+# Clean up old records
+uv run python cli.py cleanup --days 30
+```
+
 ### Stop the Engine
 
 Press `Ctrl+C` or send `SIGTERM` to gracefully shutdown the engine. It will wait for running tasks to complete before exiting.
@@ -104,6 +137,7 @@ Press `Ctrl+C` or send `SIGTERM` to gracefully shutdown the engine. It will wait
 ```
 workflow-execution-engine/
 ├── main.py                 # Entry point
+├── cli.py                  # CLI management tool
 ├── config.json             # Workflow definitions
 ├── pyproject.toml          # Project configuration
 ├── src/
@@ -135,8 +169,9 @@ workflow-execution-engine/
 | start_time | TEXT | ISO format timestamp |
 | end_time | TEXT | ISO format timestamp (nullable) |
 | exit_code | INTEGER | Process exit code (nullable) |
-| status | TEXT | running, success, or failed |
+| status | TEXT | running, success, failed, or timeout |
 | log_file_path | TEXT | Path to the log file |
+| attempt | INTEGER | Retry attempt number |
 
 ## Querying Run History
 
@@ -188,23 +223,8 @@ uv run pytest
 
 1. Edit `config.json`
 2. Add a new workflow object with required fields
-3. Restart the engine for changes to take effect
+3. The engine will auto-reload within 5 seconds (or restart manually)
 
 ## License
 
 MIT License
-</task_progress>
-- [x] Create project structure (src/ directory)
-- [x] Define data models (models.py)
-- [x] Implement SQLite database layer (database.py)
-- [x] Implement logging system (logger.py)
-- [x] Implement cron scheduler (scheduler.py)
-- [x] Implement async command executor (executor.py)
-- [x] Implement main engine loop (engine.py)
-- [x] Update main.py entry point
-- [x] Create sample config.json
-- [x] Update pyproject.toml with dependencies
-- [ ] Update README.md with usage instructions
-- [ ] Test the complete system
-</task_progress>
-</write_to_file>
