@@ -5,8 +5,9 @@ from .schemas import (
     WorkflowResponse,
     WorkflowDetailResponse,
     RunResponse,
-    StatsResponse,
+    WorkflowStatsResponse,
     EngineStatusResponse,
+    OverviewStatsResponse,
 )
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     "WorkflowResponse",
     "WorkflowDetailResponse",
     "RunResponse",
-    "StatsResponse",
+    "WorkflowStatsResponse",
     "EngineStatusResponse",
+    "OverviewStatsResponse",
 ]

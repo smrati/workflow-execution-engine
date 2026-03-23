@@ -16,8 +16,8 @@ export default function WorkflowCard({
   onDisable,
 }: WorkflowCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow p-4">
-      <div className="p-4 border-b border-gray-200">
+    <div className="bg-white rounded-lg shadow">
+      <div className="px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
@@ -25,7 +25,9 @@ export default function WorkflowCard({
                 {workflow.name}
               </Link>
             </h2>
-            <StatusBadge status={workflow.enabled ? 'enabled' : 'disabled'} size="sm" />
+            <div className="mt-1">
+              <StatusBadge status={workflow.enabled ? 'enabled' : 'disabled'} size="sm" />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {onTrigger && (
@@ -37,28 +39,29 @@ export default function WorkflowCard({
                 Run Now
               </button>
             )}
-          {workflow.enabled ? (
-            <button
-              onClick={onDisable}
-              className="px-3 py-1 text-sm text-red-600 hover:text-red-900"
-            >
-              Disable
-            </button>
-          ) : (
-            <button
-              onClick={onEnable}
-              className="px-3 py-1 text-sm text-green-600 hover:text-green-900"
-            >
-              Enable
-            </button>
-          )}
+            {workflow.enabled ? (
+              <button
+                onClick={onDisable}
+                className="px-3 py-1 text-sm text-red-600 hover:text-red-900"
+              >
+                Disable
+              </button>
+            ) : (
+              <button
+                onClick={onEnable}
+                className="px-3 py-1 text-sm text-green-600 hover:text-green-900"
+              >
+                Enable
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="px-6 py-4 space-y-3">
         <div>
-          <p className="text-xs font-medium text-gray-500">Command</p>
-          <code className="block p-2 bg-gray-100 rounded text-sm font-mono">
+          <p className="text-xs font-medium text-gray-500 mb-1">Command</p>
+          <code className="block p-2 bg-gray-100 rounded text-sm font-mono text-gray-800">
             {workflow.command}
           </code>
         </div>
@@ -77,7 +80,7 @@ export default function WorkflowCard({
           {workflow.retry_count > 0 && (
             <div>
               <p className="text-xs font-medium text-gray-500">Retries</p>
-              <p className="text-sm text-gray-900">{workflow.retry_count}</p>
+              <p className="text-sm text-gray-900">{workflow.retry_count} (delay: {workflow.retry_delay}s)</p>
             </div>
           )}
         </div>
@@ -93,21 +96,21 @@ export default function WorkflowCard({
 
         {workflow.stats && (
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Statistics</h3>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Statistics</h3>
             <div className="grid grid-cols-4 gap-4 text-center">
-              <div>
+              <div className="bg-gray-50 p-3 rounded">
                 <p className="text-2xl font-bold text-gray-900">{workflow.stats.total_runs}</p>
                 <p className="text-xs text-gray-500">Total</p>
               </div>
-              <div>
+              <div className="bg-green-50 p-3 rounded">
                 <p className="text-2xl font-bold text-green-600">{workflow.stats.successful_runs}</p>
                 <p className="text-xs text-gray-500">Success</p>
               </div>
-              <div>
+              <div className="bg-red-50 p-3 rounded">
                 <p className="text-2xl font-bold text-red-600">{workflow.stats.failed_runs}</p>
                 <p className="text-xs text-gray-500">Failed</p>
               </div>
-              <div>
+              <div className="bg-orange-50 p-3 rounded">
                 <p className="text-2xl font-bold text-orange-600">{workflow.stats.timeout_runs}</p>
                 <p className="text-xs text-gray-500">Timeout</p>
               </div>

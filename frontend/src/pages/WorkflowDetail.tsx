@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import api, { WorkflowDetail } from '../../services/api';
+import api from '../services/api';
+import type { WorkflowDetail as WorkflowDetailType } from '../services/api';
 import StatusBadge from '../components/common/StatusBadge';
 
 export default function WorkflowDetail() {
   const { name } = useParams<{ name: string }>();
-  const [workflow, setWorkflow] = useState<WorkflowDetail | null>(null);
+  const [workflow, setWorkflow] = useState<WorkflowDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [triggering, setTriggering] = useState(false);

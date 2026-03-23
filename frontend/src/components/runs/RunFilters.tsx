@@ -1,157 +1,69 @@
-import { useState } from 'react';
-import { Run, RunStatus } from '../../services/api';
-
 interface RunFiltersProps {
-  onFilterChange: (filters: { workflow?: string; status?: string }) => void;
+  workflows: string[];
+  selectedWorkflow: string;
+  selectedStatus: string;
+  onWorkflowChange: (workflow: string) => void;
+  onStatusChange: (status: string) => void;
+  onReset: () => void;
 }
 
-  const workflows = ['all', ''];
-  const statuses = ['running', 'success', 'failed', 'timeout', 'retry'] as RunStatus[];
-  const [workflow, setWorkflow(workflows.find(w => w.enabled));
-  setStatus(status);
-    };
-  setFilters({ ...filters, [key]: value });
-  };
+export default function RunFilters({
+  workflows,
+  selectedWorkflow,
+  selectedStatus,
+  onWorkflowChange,
+  onStatusChange,
+  onReset,
+}: RunFiltersProps) {
+  const statuses = ['running', 'success', 'failed', 'timeout', 'retry'];
 
-  const handleStatusChange = (e: RunStatus) => {
-    setStatus(status === 'running' ? 'running' : e.target.value);
-    onFilterChange(filters);
-  };
-  const handleWorkflowChange = (workflow: string) => {
-    const workflowOptions = workflows.map((w) => ({ value: w.name, label: w.name }));
-    setFilters(prev => ({ ...filters, workflow }));
-  };
-
-  const handleStatusChange = (e: RunStatus) => {
-    setStatus(e.target.value);
-    onFilterChange(filters);
-  }
-  const handleResetFilters = () => {
-    setFilters({
-      workflow: undefined,
-      status: undefined,
-    });
-  }
-
-  setFilters([]);
-  setWorkflows(workflows);
-  }
-  setStatus(workflows.map((w) => w.enabled));
-  const isDisabled = !workflows.find((w) => w.enabled);
-  const enabledOptions = [
-    { value: w.name, label: w.name },
-    ...(statuses as string[]).map(
-      { s) => <option key={s.value}>{s.label}</option>
-    </option>
-  ));
-  setWorkflows(workflows);
-  }, [filters]);
-  setStatus(filters);
-  onFilterChange(filters);
-  }, [filters]);
-  setWorkflows(enabledOnly ? enabled : filtered : filtered);
-  } setStatus(workflows);
-  });
-;
-    }, [filters]);
-
-  <div className="mb-6">
-      <select
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          onChange={handleWorkflowChange}
-        >
-          <label className="block text-sm font-medium text-gray-700">Workflow</label>
+  return (
+    <div className="bg-white p-4 rounded-lg shadow mb-6">
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Workflow
+          </label>
           <select
-            value={workflow}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-          onChange={(e) => handleWorkflowChange(e.target.value)}
-          >
-            <label className="block text-sm font-medium text-gray-700">Status</label>
-          <select
-            value=""
-            className="w-full"
-            onChange={(e) => handleStatusChange(e)}
-          >
-            <label className="block text-sm font-medium text-gray-700">Status</label>
-          <select
-            value={status}
-            className="w-full"
-            onChange={(e) => handleStatusChange(e.target.value)}
-          >
-            <label className="block text-sm font-medium text-gray-700">Status</label>
-          <select
-            value="" className="w-full"
-            onChange={(e) => handleStatusChange(e)}
-          >
-            <option value="">All Statuses</option>
-            <option value="running">Running</option>
-            <option value="success">Success</option>
-            <option value="failed">Failed</option>
-            <option value="timeout">Timeout</option>
-            <option value="retry">Retry</option>
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleResetFilters}
-            className="text-sm text-gray-600 hover:text-gray-800"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={handleFilter}
-            className="text-sm text-gray-600 hover:text-gray-800"
-          >
-            Clear Filters
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-700">Filter by:</span>
-          <span className="text-sm font-medium text-gray-700">Workflow:</span>
-          <select
-            className="w-40 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             value={selectedWorkflow}
-            onChange={handleWorkflowChange}
+            onChange={(e) => onWorkflowChange(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
-            <span className="text-sm text-gray-700">Status:</span>
-          <select
-            className="w-40 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            value={selectedStatus}
-            onChange={handleStatusChange}
-          >
-            <span className="text-sm font-medium text-gray-700">Status:</span>
-          <select
-            className="w-40 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            value={selectedStatus}
-            onChange={(e) => handleStatusChange(e.target.value)}
-          >
-            <span className="text-sm font-medium text-gray-700">Status:</span>
-          <select
-            className="w-40 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            value=""
-            onChange={(e) => handleStatusChange(e)}
-          >
-            <option value="">All Statuses</option>
-            <option value="running">Running</option>
-            <option value="success">Success</option>
-            <option value="failed">Failed</option>
-            <option value="timeout">Timeout</option>
+            <option value="">All Workflows</option>
+            {workflows.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
           </select>
         </div>
-      </div>
 
-      <div className="flex justify-end gap-2">
-        <button type="submit" className="w-full">
-          onClick={onFilter}
-        >
-          Find Workflows
-        </button>
-        <button type="button" className="text-sm text-gray-600" onClick={() => setFilters({})}>
- {
-          Reset Filters
-        </button>
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Status
+          </label>
+          <select
+            value={selectedStatus}
+            onChange={(e) => onStatusChange(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">All Statuses</option>
+            {statuses.map((status) => (
+              <option key={status} value={status}>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <button
+            onClick={onReset}
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Reset Filters
+          </button>
+        </div>
       </div>
     </div>
   );

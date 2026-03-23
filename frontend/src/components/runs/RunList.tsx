@@ -1,193 +1,174 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api, { Run, RunListResponse, RunStatus } from '../../services/api';
+import api, { Run, RunListResponse, Workflow } from '../../services/api';
 import StatusBadge from '../common/StatusBadge';
 import Pagination from '../common/Pagination';
+import RunFilters from './RunFilters';
 
-interface RunListProps {
-  onWorkflowSelect?: (workflow: string) => void;
-}
-
-  const [runs, setRuns] = useState<RunListResponse>({
-    runs: [],
-    total: 0,
-    page: 1,
-    page_size: 20,
-    total_pages: 1,
-  });
+export default function RunList() {
+  const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<{
-    workflow: string;
-    status: RunStatus | '';
-    page: number;
-  } = useState<1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [workflows, setWorkflows] = useState<string[]>([]);
+  const [filters, setFilters] = useState({
+    workflow: '',
+    status: '',
+  });
 
-  // Load workflows for the filter dropdown
+  // Load workflows for filter dropdown
   useEffect(() => {
     const loadWorkflows = async () => {
       try {
         const data = await api.getWorkflows();
-        setWorkflows(data.map((w: Workflow) w.name));
-      } catch (error) {
-        console.error('Failed to load workflows:', error);
+        setWorkflows(data.map((w: Workflow) => w.name));
+      } catch (err) {
+        console.error('Failed to load workflows:', err);
       }
     };
     loadWorkflows();
-  }, [filters]);
+  }, []);
 
-  );
-  const loadRuns = async () => {
-    setLoading(true);
-    try {
-      const params: {
-        workflow_name: filters.workflow || undefined,
-        status: filters.status || undefined,
-        page: filters.page,
-        page_size: filters.page_size,
-      };
-      const data = await api.getRuns(params);
-      setRuns(data);
-    } catch (error) {
-      console.error('Failed to load runs:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters]);
-
-  const handleFilterChange = (newFilters: { workflow?: string; status?: string }) => void;
-    setFilters(newFilters);
-    // Reset to first page and reload
+  // Load runs
+  useEffect(() => {
+    const loadRuns = async () => {
+      setLoading(true);
+      try {
+        const data: RunListResponse = await api.getRuns({
+          workflow_name: filters.workflow || undefined,
+          status: filters.status || undefined,
+          page: currentPage,
+          page_size: 20,
+        });
+        setRuns(data.runs);
+        setTotalPages(data.total_pages);
+      } catch (err) {
+        console.error('Failed to load runs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     loadRuns();
-  }, [filters]);
+  }, [filters, currentPage]);
+
+  const handleWorkflowChange = (workflow: string) => {
+    setFilters((prev) => ({ ...prev, workflow }));
+    setCurrentPage(1);
+  };
+
+  const handleStatusChange = (status: string) => {
+    setFilters((prev) => ({ ...prev, status }));
+    setCurrentPage(1);
+  };
+
+  const handleReset = () => {
+    setFilters({ workflow: '', status: '' });
+    setCurrentPage(1);
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <select
-            value={workflow}
-            onChange={handleWorkflowChange}
-            className="w-40 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-          >
-            <label className="block text-sm font-medium text-gray-700">Workflow</label>
-            <select
-              value={workflow}
-              className="w-full"
-              onChange={handleWorkflowChange}
-            >
-              {workflows.map((w) => (
-                <option key={w.name} value={w.name}>
-                  {w.name}
-                </option>
-              ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Status</label>
-          <select
-            className="w-40 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            value={status}
-            onChange={handleStatusChange}
-          >
-            <option value="">All Statuses</option>
-            <option value="running">Running</option>
-            <option value="success">Success</option>
-            <option value="failed">Failed</option>
-            <option value="timeout">Timeout</option>
-          </select>
-        </div>
-        <div>
-          <button
-            onClick={() => setFilters({ workflow: '', status: '', page: 1 })}
-            className="text-sm text-gray-600 hover:text-gray-800"
-          >
-            Reset
-          </button>
-        </div>
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Run History</h1>
       </div>
 
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-        </div>
-      ) : runs.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+      <RunFilters
+        workflows={workflows}
+        selectedWorkflow={filters.workflow}
+        selectedStatus={filters.status}
+        onWorkflowChange={handleWorkflowChange}
+        onStatusChange={handleStatusChange}
+        onReset={handleReset}
+      />
+
+      {runs.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
           No runs found
         </div>
       ) : (
         <>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  ID
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Workflow
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Command
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Started
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Duration
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {runs.map((run) => (
-                <tr key={run.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <Link
-                      to={`/runs/${run.id}`}
-                      className="text-primary-600 hover:text-primary-900"
-                    >
-                      {run.id}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <Link
-                      to={`/workflows/${run.workflow_name}`}
-                      className="text-gray-900 hover:text-gray-600"
-                    >
-                      {run.workflow_name}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <code className="text-sm text-gray-600">
-                      {run.command.length > 40 ? `${run.command.slice(0, 40)}...` : run.command}
-                    </code>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <StatusBadge status={run.status} size="sm" />
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(run.start_time).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                    {run.duration_seconds?.toFixed(2) : 0} : 's'}
-                    {run.duration_seconds} : '-'} ? 's'}
-                  </td>
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ID
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Workflow
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Command
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Started
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Duration
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {runs.map((run) => (
+                  <tr key={run.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Link
+                        to={`/runs/${run.id}`}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
+                        #{run.id}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Link
+                        to={`/workflows/${run.workflow_name}`}
+                        className="text-gray-900 hover:text-gray-600"
+                      >
+                        {run.workflow_name}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4">
+                      <code className="text-sm text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                        {run.command.length > 40 ? `${run.command.slice(0, 40)}...` : run.command}
+                      </code>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <StatusBadge status={run.status} size="sm" />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(run.start_time).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {run.duration_seconds !== null && run.duration_seconds !== undefined
+                        ? `${run.duration_seconds.toFixed(2)}s`
+                        : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div className="mt-4">
             <Pagination
-              currentPage={filters.page}
+              currentPage={currentPage}
               totalPages={totalPages}
-              onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
+              onPageChange={setCurrentPage}
             />
           </div>
-        )}
-      </>
+        </>
+      )}
     </div>
   );
 }
