@@ -167,6 +167,6 @@ class Executor:
         stderr_task = asyncio.create_task(read_stream(process.stderr, "STDERR"))
         
         stdout_text, stderr_text = await asyncio.gather(stdout_task, stderr_task)
-        exit_code = await process.wait()
-        
+        await process.wait()  # Wait for process to complete
+
         return stdout_text, stderr_text

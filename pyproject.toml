@@ -5,7 +5,11 @@ description = "A cron-based workflow execution engine for scheduling and running
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "croniter>=2.0.0"
+    "croniter>=2.0.0",
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "websockets>=12.0",
+    "pydantic>=2.0.0"
 ]
 
 [project.scripts]
