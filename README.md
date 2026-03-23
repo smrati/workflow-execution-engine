@@ -13,6 +13,62 @@ A cron-based workflow execution engine for scheduling and running commands with 
 - **Real-time Updates**: WebSocket support for live status updates
 - **Graceful Shutdown**: Handles SIGINT/SIGTERM for clean shutdown
 
+## How to Run the System
+
+### Prerequisites
+
+- Python 3.11+
+- Node.js 18+ (for frontend)
+- uv (Python package manager)
+
+### Quick Start (Two Terminals)
+
+**Step 1: Install Dependencies**
+```bash
+# Backend dependencies
+uv sync
+
+# Frontend dependencies
+cd frontend && npm install && cd ..
+```
+
+**Step 2: Start Backend (Terminal 1)**
+```bash
+uv run python run_combined.py
+```
+
+**Step 3: Start Frontend (Terminal 2)**
+```bash
+cd frontend && npm run dev
+```
+
+**Step 4: Access the Application**
+
+| Service | URL |
+|---------|-----|
+| **Web UI** | http://localhost:5173 |
+| **API Server** | http://localhost:8000 |
+| **API Docs** | http://localhost:8000/docs |
+
+### Verify It's Working
+```bash
+# Check API is running
+curl http://localhost:8000/api/stats/engine
+
+# Check workflows are loaded
+curl http://localhost:8000/api/workflows
+```
+
+### Alternative: Engine Only (No UI)
+
+If you just want the workflow engine without the web interface:
+
+```bash
+uv run python main.py
+```
+
+---
+
 ## Web UI
 
 The workflow engine includes a modern web-based interface for monitoring and managing your workflows.
