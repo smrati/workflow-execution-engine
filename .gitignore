@@ -214,3 +214,6 @@ node_modules/
 workflows.db
 data/workflows.db
 data/logs/
+
+# Config
+config.json

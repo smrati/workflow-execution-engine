@@ -145,8 +145,8 @@ cd frontend
 npm install
 cd ..
 
-# 4. Create your config.json (or use the example)
-cp config.example.json config.json  # If example exists
+# 4. Create your config.json from the example
+cp config.example.json config.json
 
 # 5. Start the combined server (Engine + API)
 uv run python run_combined.py
@@ -191,7 +191,13 @@ uv run python run_api.py --port 8000
 
 ## Configuration
 
-Create a `config.json` file in the project root (or specify a custom path):
+Create a `config.json` file from the example template:
+
+```bash
+cp config.example.json config.json
+```
+
+The config file should contain a JSON array of workflow objects:
 
 ```json
 [
@@ -309,7 +315,7 @@ workflow-execution-engine/
 ├── run_combined.py         # Combined engine + API runner
 ├── run_api.py              # API-only server
 ├── cli.py                  # CLI management tool
-├── config.json             # Workflow definitions
+├── config.example.json      # Workflow definitions (template)
 ├── pyproject.toml          # Project configuration
 ├── src/
 │   ├── __init__.py
