@@ -1,203 +1,144 @@
 # Workflow Execution Engine
 
-A cron-based workflow execution engine for scheduling and running commands with a modern web UI for monitoring and management.
+A production-ready cron-based workflow execution engine with a modern web UI for monitoring, management, and observability. Schedule any shell command to run on a cron schedule, monitor executions in real time, and manage access with role-based user accounts.
 
-## Features
+## What Is This?
 
-- **Cron-based Scheduling**: Use standard cron expressions to define when workflows should run
-- **Parallel Execution**: Multiple workflows can run concurrently
-- **Persistent Metadata**: All run history stored in SQLite database
-- **Detailed Logging**: Each workflow run gets its own timestamped log file
-- **Web UI**: Modern React-based dashboard for monitoring and managing workflows
-- **REST API**: Full-featured API for programmatic access
-- **Real-time Updates**: WebSocket support for live status updates
-- **Graceful Shutdown**: Handles SIGINT/SIGTERM for clean shutdown
+This is a self-hosted alternative to tools like Airflow (for simple use cases), GitHub Actions cron jobs, or systemd timers -- but with a built-in web dashboard, REST API, authentication, and detailed run history.
 
-## How to Run the System
+### Use Cases
+
+- **Scheduled system maintenance**: Run disk cleanup, log rotation, backups on cron schedules
+- **Monitoring and health checks**: Periodically run health check scripts and track results
+- **Data pipeline orchestration**: Schedule ETL jobs, data imports, report generation
+- **DevOps automation**: Run deployment scripts, certificate renewal, database vacuuming
+- **Team observability**: Give team members read-only access to monitor workflow health
+
+### Key Features
+
+- **Cron-based scheduling** with standard 5-field cron expressions
+- **Parallel execution** with configurable concurrency limit (default: 10)
+- **Automatic retries** with configurable count and delay
+- **Command timeout** support per workflow
+- **Persistent run history** stored in SQLite
+- **Per-run log files** with timestamped output capture
+- **Real-time WebSocket updates** for live status changes
+- **JWT authentication** with role-based access control (admin, normal, viewer)
+- **Run log cleanup** with before/after/between date range filters
+- **Timezone-aware UI** with selectable timezone (persisted per user)
+- **Trigger tracking** -- know whether a run was triggered by cron or by a specific user
+- **REST API** with OpenAPI docs at `/docs`
+- **Graceful shutdown** -- waits for running tasks before exiting
+
+---
+
+## Architecture
+
+The system has two components:
+
+```
++--------------------+         +-----------------------+
+|   Frontend UI     |  HTTP   |    Backend Server     |
+|  React + Vite     |<------->|  FastAPI + Engine     |
+|  localhost:5173   |   WS    |  localhost:8000       |
++--------------------+         +-----------+-----------+
+                                          |
+                              +-----------+-----------+
+                              |  config.json           |
+                              |  data/workflows.db    |
+                              |  data/logs/            |
+                              +-----------------------+
+```
+
+| Component | Description |
+|-----------|-------------|
+| **Backend** | FastAPI server + cron engine + WebSocket + SQLite (single process) |
+| **Frontend** | React SPA with Tailwind CSS, runs independently |
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.11+
 - Node.js 18+ (for frontend)
-- uv (Python package manager)
+- [uv](https://github.com/astral-sh/uv) (Python package manager)
 
-### Quick Start (Two Terminals)
-
-**Step 1: Install Dependencies**
-```bash
-# Backend dependencies
-uv sync
-
-# Frontend dependencies
-cd frontend && npm install && cd ..
-```
-
-**Step 2: Start Backend (Terminal 1)**
-```bash
-uv run python run_combined.py
-```
-
-**Step 3: Start Frontend (Terminal 2)**
-```bash
-cd frontend && npm run dev
-```
-
-**Step 4: Access the Application**
-
-| Service | URL |
-|---------|-----|
-| **Web UI** | http://localhost:5173 |
-| **API Server** | http://localhost:8000 |
-| **API Docs** | http://localhost:8000/docs |
-
-### Verify It's Working
-```bash
-# Check API is running
-curl http://localhost:8000/api/stats/engine
-
-# Check workflows are loaded
-curl http://localhost:8000/api/workflows
-```
-
-### Alternative: Engine Only (No UI)
-
-If you just want the workflow engine without the web interface:
+### 1. Clone and Install
 
 ```bash
-uv run python main.py
-```
-
----
-
-## Web UI
-
-The workflow engine includes a modern web-based interface for monitoring and managing your workflows.
-
-### Access URLs
-
-| Service | URL |
-|---------|-----|
-| Web UI (Frontend) | http://localhost:5173 |
-| API Server | http://localhost:8000 |
-| API Documentation | http://localhost:8000/docs |
-| WebSocket | ws://localhost:8000/ws |
-
-### UI Features
-
-#### Dashboard
-- **Status Cards**: Quick overview of total workflows, enabled workflows, total runs, success rate, and currently running tasks
-- **Activity Feed**: Real-time list of recent workflow executions with status indicators
-- **Auto-refresh**: Dashboard updates automatically via WebSocket when runs complete
-
-#### Workflows Page
-- List all configured workflows in a table format
-- View workflow name, schedule (cron), status (enabled/disabled), and next run time
-- **Run Now**: Manually trigger a workflow execution
-- Click workflow name to view detailed information
-
-#### Workflow Detail Page
-- View full workflow configuration (command, schedule, timeout, retries)
-- See workflow statistics (total runs, success/fail/timeout counts)
-- Enable or disable the workflow
-- Trigger manual runs
-
-#### Runs Page
-- View complete history of all workflow executions
-- **Filter by workflow name**
-- **Filter by status** (running, success, failed, timeout, retry)
-- **Pagination** for large datasets
-- Click any run to view details
-
-#### Run Detail Page
-- View run metadata (workflow, command, start/end time, duration, exit code)
-- **Log Viewer**: Full log output from the workflow execution
-- Status badge with color coding
-
-### Real-time Updates
-
-The UI receives real-time updates via WebSocket when:
-- A workflow run starts
-- A workflow run completes
-- Workflow configurations are reloaded
-
----
-
-## Setup Guide
-
-### Prerequisites
-
-- Python 3.11+
-- Node.js 18+ (for frontend)
-- uv (Python package manager)
-
-### Full Setup (Recommended)
-
-```bash
-# 1. Clone the repository
 git clone <repository-url>
 cd workflow-execution-engine
 
-# 2. Install Python dependencies
 uv sync
+cd frontend && npm install && cd ..
+```
 
-# 3. Install frontend dependencies
-cd frontend
-npm install
-cd ..
+### 2. Configure Environment
 
-# 4. Create your config.json from the example
+```bash
+cp .env.example.sh .env.sh
+# Edit .env.sh and set JWT_SECRET_KEY (generate with: openssl rand -hex 32)
+source .env.sh
+```
+
+### 3. Configure Workflows
+
+```bash
 cp config.example.json config.json
+# Edit config.json to define your workflows
+```
 
-# 5. Start the combined server (Engine + API)
+### 4. Start Backend
+
+```bash
 uv run python run_combined.py
+```
 
-# 6. In a new terminal, start the frontend
+### 5. Start Frontend (separate terminal)
+
+```bash
 cd frontend && npm run dev
 ```
 
-### Access the Application
+### 6. Access
 
-1. Open your browser to **http://localhost:5173**
-2. The API is available at **http://localhost:8000**
-3. API documentation at **http://localhost:8000/docs**
+| Service | URL |
+|---------|-----|
+| Web UI | http://localhost:5173 |
+| API Server | http://localhost:8000 |
+| API Docs (Swagger) | http://localhost:8000/docs |
+
+### First-Time Setup
+
+1. Open http://localhost:5173
+2. Register the first user -- this account automatically becomes **admin**
+3. Subsequent self-registration is disabled
+4. Use the **User Management** page (admin only) to create additional users
 
 ---
 
-## Running Options
+## User Roles and Permissions
 
-### Option 1: Combined Mode (Recommended for Development)
+| Role | View Workflows/Runs | Trigger/Enable/Disable | Manage Users | Delete Runs |
+|------|:-------------------:|:---------------------:|:------------:|:-----------:|
+| **admin** | Yes | Yes | Yes | Yes |
+| **normal** | Yes | Yes | No | No |
+| **viewer** | Yes | No | No | No |
 
-Runs both the workflow engine and API server in one process:
+### Token Lifecycle
 
-```bash
-uv run python run_combined.py --port 8000 --config config.json
-```
+| Token | Lifetime | Purpose |
+|-------|----------|---------|
+| Access Token | 15 minutes | Authenticate API requests |
+| Refresh Token | 7 days | Obtain new access tokens |
 
-### Option 2: Engine Only
-
-Just the workflow scheduler without the web interface:
-
-```bash
-uv run python main.py --config config.json
-```
-
-### Option 3: API Only
-
-Run just the API server (useful if engine is running separately):
-
-```bash
-uv run python run_api.py --port 8000
-```
+---
 
 ## Configuration
 
-Create a `config.json` file from the example template:
-
-```bash
-cp config.example.json config.json
-```
-
-The config file should contain a JSON array of workflow objects:
+Workflows are defined in `config.json` as a JSON array:
 
 ```json
 [
@@ -205,260 +146,373 @@ The config file should contain a JSON array of workflow objects:
     "name": "hello-world",
     "command": "echo 'Hello from workflow engine!'",
     "cron": "* * * * *",
-    "enabled": true
-  },
-  {
-    "name": "python-script",
-    "command": "uv run project1/this_1.py",
-    "cron": "*/15 * * * *",
-    "enabled": true
-  },
-  {
-    "name": "go-program",
-    "command": "/path/to/executable my_code.go",
-    "cron": "0 * * * *",
-    "enabled": true
+    "enabled": true,
+    "timeout": 60,
+    "retry_count": 3,
+    "retry_delay": 30,
+    "working_dir": "/home/user/projects",
+    "env": { "NODE_ENV": "production" }
   }
 ]
 ```
 
-### Configuration Fields
+### Workflow Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Unique identifier for the workflow |
-| `command` | string | Yes | Shell command to execute |
-| `cron` | string | Yes | Cron expression (standard 5-field format) |
-| `enabled` | boolean | No | Whether the workflow is active (default: true) |
-| `timeout` | integer | No | Timeout in seconds (default: none) |
-| `retry_count` | integer | No | Number of retries on failure (default: 0) |
-| `retry_delay` | integer | No | Delay between retries in seconds (default: 60) |
-| `working_dir` | string | No | Working directory for command execution |
-| `env` | object | No | Environment variables to set |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | string | Yes | -- | Unique identifier |
+| `command` | string | Yes | -- | Shell command to execute |
+| `cron` | string | Yes | -- | 5-field cron expression |
+| `enabled` | boolean | No | `true` | Whether the workflow is active |
+| `timeout` | integer | No | `none` | Max execution time in seconds |
+| `retry_count` | integer | No | `0` | Number of retries on failure |
+| `retry_delay` | integer | No | `60` | Seconds between retries |
+| `working_dir` | string | No | current | Working directory for the command |
+| `env` | object | No | `{}` | Environment variables for the command |
 
-### Cron Expression Format
+### Cron Expression Reference
 
 ```
-┌───────────── minute (0 - 59)
-│ ┌───────────── hour (0 - 23)
-│ │ ┌───────────── day of month (1 - 31)
-│ │ │ ┌───────────── month (1 - 12)
-│ │ │ │ ┌───────────── day of week (0 - 6) (Sunday to Saturday)
-│ │ │ │ │
++----------------- minute (0 - 59)
+| +--------------- hour (0 - 23)
+| | +------------- day of month (1 - 31)
+| | | +----------- month (1 - 12)
+| | | | +--------- day of week (0 - 6, Sun-Sat)
 * * * * *
 ```
 
-Examples:
-- `* * * * *` - Every minute
-- `*/15 * * * *` - Every 15 minutes
-- `0 * * * *` - Every hour
-- `0 9 * * 1-5` - 9 AM Monday through Friday
+| Expression | Description |
+|-----------|-------------|
+| `* * * * *` | Every minute |
+| `*/5 * * * *` | Every 5 minutes |
+| `0 * * * *` | Every hour |
+| `*/30 * * * *` | Every 30 minutes |
+| `0 9 * * 1-5` | 9 AM, Monday to Friday |
+| `0 0 1 * *` | Midnight on the 1st of every month |
 
-## Usage
+---
 
-### Start the Engine
+## Web UI Features
 
+### Dashboard
+- Status cards: total workflows, enabled workflows, total runs, success rate, running tasks
+- Activity feed: recent workflow executions with live updates via WebSocket
+
+### Workflows
+- Table and card views of all configured workflows
+- Run Now button, Enable/Disable toggles
+- Next scheduled run time (displayed in user-selected timezone)
+
+### Run History
+- Paginated table with all workflow executions
+- Filter by workflow name and status (running, success, failed, timeout, retry)
+- **Triggered By** column: shows `cron` for scheduled runs or the username for manual triggers
+- **Cleanup Runs** button (admin only): delete runs by date range with confirmation dialog
+
+### Run Detail
+- Full run metadata: command, start/end time, duration, exit code, attempt number, triggered by
+- Log viewer with full stdout/stderr output
+
+### User Management (Admin Only)
+- Create users with role selection (admin, normal, viewer)
+- Change roles, delete users
+- Role badges with color coding
+
+### Timezone Selector
+- Dropdown in the header with 12 major timezones
+- Selection persists across sessions (stored in localStorage)
+- All timestamps in the UI respect the selected timezone
+
+---
+
+## API Reference
+
+### Authentication
+
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| POST | `/api/auth/register` | Public (first user only) | Register admin account |
+| POST | `/api/auth/login` | Public | Login, get access + refresh tokens |
+| POST | `/api/auth/refresh` | Public | Refresh access token |
+| GET | `/api/auth/me` | Authenticated | Get current user info |
+
+### User Management (Admin Only)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/users` | Create a new user |
+| GET | `/api/auth/users` | List all users |
+| PUT | `/api/auth/users/{id}/role` | Update a user's role |
+| DELETE | `/api/auth/users/{id}` | Delete a user |
+
+### Workflows
+
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/api/workflows` | All authenticated | List all workflows |
+| GET | `/api/workflows/{name}` | All authenticated | Workflow details with stats |
+| GET | `/api/workflows/{name}/schedule` | All authenticated | Schedule information |
+| POST | `/api/workflows/{name}/run` | Admin, Normal | Trigger a manual run |
+| PUT | `/api/workflows/{name}/enable` | Admin, Normal | Enable a workflow |
+| PUT | `/api/workflows/{name}/disable` | Admin, Normal | Disable a workflow |
+
+### Runs
+
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/api/runs` | All authenticated | List runs (paginated, filterable) |
+| GET | `/api/runs/{id}` | All authenticated | Get specific run details |
+| DELETE | `/api/runs/cleanup` | Admin | Delete runs by date range |
+
+**Cleanup request body:**
+```json
+{
+  "before": "2026-01-01T00:00:00",
+  "after": "2025-01-01T00:00:00",
+  "workflow_name": "hello-world"
+}
+```
+Provide `before` and/or `after` in ISO format. `workflow_name` is optional.
+
+### Stats and Logs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/stats/engine` | Engine status (running, concurrent tasks, uptime) |
+| GET | `/api/stats/overview` | Dashboard summary with recent runs |
+| GET | `/api/stats/workflows/{name}` | Per-workflow success/fail stats |
+| GET | `/api/logs/{run_id}` | Log file content for a specific run |
+
+### WebSocket
+
+Connect to `ws://localhost:8000/ws` for real-time event broadcasts:
+
+| Event | Description |
+|-------|-------------|
+| `run_started` | A workflow execution has started |
+| `run_completed` | A workflow execution has finished |
+| `workflow_event` | Workflow added, removed, enabled, or disabled |
+| `stats_update` | Dashboard statistics changed |
+
+---
+
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `JWT_SECRET_KEY` | Yes | `your-secret-key-change-in-production` | Secret key for signing JWT tokens |
+
+Set via `.env.sh` (see `.env.example.sh` for template):
 ```bash
-# Using uv
-uv run python main.py
-
-# With custom options
-uv run python main.py --config my-config.json --interval 0.5
+cp .env.example.sh .env.sh
+# Edit and source before every run:
+source .env.sh
 ```
 
-### Command Line Options
+---
+
+## Database
+
+SQLite database at `data/workflows.db` (auto-created on first run).
+
+### Schema
+
+**`users` table:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | User ID |
+| username | TEXT UNIQUE | Username |
+| hashed_password | TEXT | Bcrypt hash |
+| role | TEXT | `admin`, `normal`, or `viewer` |
+| created_at | TEXT | ISO timestamp |
+
+**`workflow_runs` table:**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER PK | Run ID |
+| workflow_name | TEXT | Workflow name |
+| command | TEXT | Executed command |
+| start_time | TEXT | ISO timestamp |
+| end_time | TEXT | ISO timestamp (nullable) |
+| exit_code | INTEGER | Process exit code (nullable) |
+| status | TEXT | `running`, `success`, `failed`, `timeout` |
+| log_file_path | TEXT | Path to log file |
+| attempt | INTEGER | Retry attempt number (1 = first) |
+| triggered_by | TEXT | Username if manual, NULL if cron |
+
+### Direct Queries
+
+```bash
+# Recent runs
+sqlite3 data/workflows.db "SELECT * FROM workflow_runs ORDER BY start_time DESC LIMIT 10;"
+
+# Failed runs
+sqlite3 data/workflows.db "SELECT * FROM workflow_runs WHERE status='failed';"
+
+# Manual runs by a specific user
+sqlite3 data/workflows.db "SELECT * FROM workflow_runs WHERE triggered_by='alice';"
+
+# Cron-only runs
+sqlite3 data/workflows.db "SELECT * FROM workflow_runs WHERE triggered_by IS NULL;"
+```
+
+---
+
+## Log Files
+
+Each run produces a timestamped log file under `data/logs/<workflow_name>/`:
+
+```
+data/logs/
++-- engine.log
++-- hello-world/
+|   +-- 20260326_040000.log
+|   +-- 20260326_040100.log
++-- disk-usage/
+    +-- 20260326_050000.log
+```
+
+---
+
+## Running Options
+
+| Command | Description |
+|---------|-------------|
+| `uv run python run_combined.py` | Engine + API server (recommended) |
+| `uv run python main.py` | Engine only (no web UI) |
+| `uv run python run_api.py` | API server only (no engine) |
+| `uv run python cli.py status` | CLI: show engine status |
+| `uv run python cli.py history` | CLI: show run history |
+| `uv run python cli.py history -w <name>` | CLI: filter history by workflow |
+| `uv run python cli.py logs <run_id>` | CLI: show logs for a run |
+| `uv run python cli.py stats <name>` | CLI: workflow statistics |
+| `uv run python cli.py cleanup --days 30` | CLI: delete runs older than N days |
+
+### CLI Options
 
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
-| `--config` | `-c` | config.json | Path to configuration file |
-| `--db` | `-d` | data/workflows.db | Path to SQLite database |
-| `--log-dir` | `-l` | data/logs | Path to log directory |
-| `--interval` | `-i` | 1.0 | Check interval in seconds |
+| `--config` | `-c` | `config.json` | Path to workflow config file |
+| `--db` | `-d` | `data/workflows.db` | SQLite database path |
+| `--log-dir` | `-l` | `data/logs` | Log directory path |
+| `--interval` | `-i` | `1.0` | Scheduler check interval (seconds) |
 
-### CLI Management Tool
-
-```bash
-# Show engine status
-uv run python cli.py status
-
-# Show run history
-uv run python cli.py history
-
-# Filter history by workflow
-uv run python cli.py history -w hello-world
-
-# Filter by status
-uv run python cli.py history -s failed
-
-# Show logs for a specific run
-uv run python cli.py logs 123
-
-# Show workflow statistics
-uv run python cli.py stats hello-world
-
-# List all workflows
-uv run python cli.py list
-
-# Clean up old records
-uv run python cli.py cleanup --days 30
-```
-
-### Stop the Engine
-
-Press `Ctrl+C` or send `SIGTERM` to gracefully shutdown the engine. It will wait for running tasks to complete before exiting.
+---
 
 ## Project Structure
 
 ```
 workflow-execution-engine/
-├── main.py                 # Engine entry point
-├── run_combined.py         # Combined engine + API runner
-├── run_api.py              # API-only server
-├── cli.py                  # CLI management tool
-├── config.example.json      # Workflow definitions (template)
-├── pyproject.toml          # Project configuration
-├── src/
-│   ├── __init__.py
-│   ├── engine.py           # Main orchestration logic
-│   ├── scheduler.py        # Cron parsing & scheduling
-│   ├── executor.py         # Async command execution
-│   ├── database.py         # SQLite operations
-│   ├── logger.py           # Logging setup
-│   ├── models.py           # Data models
-│   └── api/                # FastAPI web interface
-│       ├── __init__.py
-│       ├── app.py          # FastAPI application factory
-│       ├── schemas.py      # Pydantic models
-│       ├── dependencies.py # Engine access
-│       ├── websocket.py    # WebSocket manager
-│       └── routes/
-│           ├── workflows.py
-│           ├── runs.py
-│           ├── stats.py
-│           └── logs.py
-├── frontend/               # React web UI
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── layout/     # Header, Sidebar, Layout
-│   │   │   ├── common/     # StatusBadge, Pagination
-│   │   │   ├── dashboard/  # StatusCard, ActivityFeed
-│   │   │   ├── workflows/  # WorkflowList, WorkflowCard
-│   │   │   ├── runs/       # RunList, RunFilters
-│   │   │   └── logs/       # LogViewer
-│   │   ├── pages/          # Dashboard, Workflows, Runs
-│   │   ├── hooks/          # useWebSocket
-│   │   └── services/       # API client
-│   ├── package.json
-│   └── vite.config.ts
-├── data/
-│   ├── workflows.db        # SQLite database (auto-created)
-│   └── logs/               # Log files (auto-created)
-│       ├── engine.log      # Engine activity log
-│       └── {workflow_name}/
-│           └── {timestamp}.log
-└── README.md
++-- run_combined.py              # Engine + API (main entry point)
++-- main.py                      # Engine only
++-- run_api.py                   # API server only
++-- cli.py                       # CLI management tool
++-- config.example.json          # Workflow definitions template
++-- .env.example.sh              # Environment variables template
++-- pyproject.toml               # Python dependencies
++-- src/
+|   +-- engine.py                # Orchestration and concurrency
+|   +-- scheduler.py             # Cron parsing and scheduling
+|   +-- executor.py              # Async command execution
+|   +-- database.py              # SQLite operations
+|   +-- logger.py                # Per-run and engine logging
+|   +-- models.py                # WorkflowRun, Workflow data models
+|   +-- api/
+|       +-- app.py               # FastAPI application
+|       +-- schemas.py           # Pydantic request/response models
+|       +-- dependencies.py      # Shared FastAPI dependencies
+|       +-- websocket.py         # WebSocket manager
+|       +-- auth/                # Authentication module
+|       |   +-- routes.py        # Login, register, user CRUD
+|       |   +-- models.py        # User model with UserRole enum
+|       |   +-- schemas.py       # User, token, role schemas
+|       |   +-- dependencies.py  # JWT, password, role guards
+|       +-- routes/
+|           +-- workflows.py     # Workflow CRUD + trigger
+|           +-- runs.py          # Run history + cleanup
+|           +-- stats.py         # Engine/workflow statistics
+|           +-- logs.py          # Log file access
++-- frontend/                    # React web UI
+|   +-- src/
+|   |   +-- pages/               # Dashboard, Workflows, Runs, Login, UserManagement
+|   |   +-- components/
+|   |   |   +-- layout/          # Header, Sidebar, Layout
+|   |   |   +-- common/          # StatusBadge, Pagination, ProtectedRoute
+|   |   |   +-- dashboard/       # StatusCard, ActivityFeed
+|   |   |   +-- workflows/       # WorkflowList, WorkflowCard
+|   |   |   +-- runs/            # RunList, RunFilters, CleanupRunsModal
+|   |   |   +-- logs/            # LogViewer
+|   |   +-- hooks/               # useAuth, useTimezone, useToast, useWebSocket
+|   |   +-- services/            # api.ts, auth.ts
+|   +-- package.json
++-- data/                        # Auto-created at runtime
+    +-- workflows.db             # SQLite database
+    +-- logs/                    # Per-run log files
 ```
-
-## API Reference
-
-### REST Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/workflows` | List all workflows |
-| GET | `/api/workflows/{name}` | Get workflow details with stats |
-| GET | `/api/workflows/{name}/schedule` | Get schedule information |
-| POST | `/api/workflows/{name}/run` | Trigger manual run |
-| PUT | `/api/workflows/{name}/enable` | Enable a workflow |
-| PUT | `/api/workflows/{name}/disable` | Disable a workflow |
-| GET | `/api/runs` | List runs (paginated, filterable) |
-| GET | `/api/runs/{id}` | Get specific run details |
-| GET | `/api/stats/engine` | Get engine status |
-| GET | `/api/stats/overview` | Get dashboard overview |
-| GET | `/api/stats/workflows/{name}` | Get workflow statistics |
-| GET | `/api/logs/{run_id}` | Get log content for a run |
-| WS | `/ws` | WebSocket for real-time updates |
-
-### WebSocket Events
-
-The WebSocket endpoint (`/ws`) broadcasts the following event types:
-
-| Event Type | Description |
-|------------|-------------|
-| `run_started` | A workflow run has started |
-| `run_completed` | A workflow run has finished |
-| `workflow_event` | Workflow added/removed/modified/enabled/disabled |
-| `stats_update` | Statistics have changed |
 
 ---
 
-## Database Schema
+## Troubleshooting
 
-### `workflow_runs` Table
+### Authentication Errors ("Could not validate credentials")
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | INTEGER | Primary key |
-| workflow_name | TEXT | Name of the workflow |
-| command | TEXT | Command that was executed |
-| start_time | TEXT | ISO format timestamp |
-| end_time | TEXT | ISO format timestamp (nullable) |
-| exit_code | INTEGER | Process exit code (nullable) |
-| status | TEXT | running, success, failed, or timeout |
-| log_file_path | TEXT | Path to the log file |
-| attempt | INTEGER | Retry attempt number |
+1. Ensure you sourced the environment file: `source .env.sh`
+2. Verify the key is set: `echo $JWT_SECRET_KEY`
+3. If still failing, delete `data/workflows.db` and re-register
 
-## Querying Run History
-
-You can query the SQLite database directly:
+### Port Already in Use
 
 ```bash
-# Get all runs
-sqlite3 data/workflows.db "SELECT * FROM workflow_runs ORDER BY start_time DESC LIMIT 10;"
+# Check what's using port 8000
+lsof -i :8000
 
-# Get runs for a specific workflow
-sqlite3 data/workflows.db "SELECT * FROM workflow_runs WHERE workflow_name='hello-world';"
-
-# Get failed runs
-sqlite3 data/workflows.db "SELECT * FROM workflow_runs WHERE status='failed';"
+# Use a different port
+uv run python run_combined.py --port 9000
 ```
 
-## Log Files
+### Missing `triggered_by` Column
 
-Each workflow run creates a separate log file containing:
-- Start timestamp and command
-- Real-time stdout and stderr output
-- Exit code and completion status
-- Duration
-
-Log files are organized by workflow name:
-```
-data/logs/
-├── engine.log           # Engine activity
-├── hello-world/
-│   ├── 20260323_065800.log
-│   └── 20260323_065900.log
-└── date-check/
-    └── 20260323_070000.log
-```
-
-## Development
-
-### Running Tests
+If you upgraded from an older version and see `table workflow_runs has no column named triggered_by`:
 
 ```bash
-# Install dev dependencies
-uv sync --dev
-
-# Run tests
-uv run pytest
+sqlite3 data/workflows.db "ALTER TABLE workflow_runs ADD COLUMN triggered_by TEXT;"
 ```
 
-### Adding New Workflows
+Or simply restart the backend -- the migration runs automatically on startup.
+
+### Adding/Modifying Workflows
 
 1. Edit `config.json`
-2. Add a new workflow object with required fields
-3. The engine will auto-reload within 5 seconds (or restart manually)
+2. Restart the backend (or wait for auto-reload)
+
+---
+
+## Security Notes
+
+- All API endpoints (except `/register` and `/login`) require a valid JWT access token
+- The `JWT_SECRET_KEY` **must** be changed in production (use `openssl rand -hex 32`)
+- Passwords are hashed with bcrypt before storage
+- Access tokens expire after 15 minutes; refresh tokens after 7 days
+- The `.env.sh` file is gitignored and must never be committed
+- The `data/workflows.db` file contains hashed passwords -- protect it accordingly
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python, FastAPI, uvicorn, asyncio |
+| Scheduling | APScheduler-style cron parser |
+| Database | SQLite (stdlib) |
+| Auth | JWT (python-jose), bcrypt |
+| Frontend | React 18, TypeScript, Vite 5 |
+| Styling | Tailwind CSS 3 |
+| HTTP Client | Axios |
+
+---
 
 ## License
 

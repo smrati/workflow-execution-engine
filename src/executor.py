@@ -22,7 +22,8 @@ class Executor:
         self, 
         workflow: Workflow, 
         attempt: int = 1,
-        max_attempts: int = 1
+        max_attempts: int = 1,
+        triggered_by: Optional[str] = None
     ) -> RunResult:
         """Execute a workflow command asynchronously.
         
@@ -30,6 +31,7 @@ class Executor:
             workflow: The workflow to execute
             attempt: Current attempt number (1-indexed)
             max_attempts: Maximum number of attempts (including retries)
+            triggered_by: Username of who triggered this run (None for cron)
         
         Returns:
             RunResult with execution details
@@ -58,7 +60,8 @@ class Executor:
             workflow_name=workflow.name,
             command=workflow.command,
             log_file_path=log_file_path,
-            attempt=attempt
+            attempt=attempt,
+            triggered_by=triggered_by
         )
         
         stdout_text = ""

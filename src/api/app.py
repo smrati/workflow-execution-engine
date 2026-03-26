@@ -4,12 +4,14 @@ import time
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .dependencies import get_engine
 from .websocket import get_manager
 from .routes import workflows, runs, stats, logs
+from .auth import router as auth_router
+from .auth.dependencies import get_current_user
 
 
 @asynccontextmanager
@@ -60,6 +62,12 @@ def create_app(
     )
 
     # Include routers
+    # Auth routes (no authentication required)
+    app.include_router(
+        auth_router,
+        prefix="/api/auth",
+        tags=["auth"]
+    )
     app.include_router(
         workflows.router,
         prefix="/api/workflows",

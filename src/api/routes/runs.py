@@ -4,7 +4,9 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 
 from ..dependencies import get_engine, get_database
-from ..schemas import RunResponse, RunListResponse
+from ..schemas import RunResponse, RunListResponse, DeleteRunsRequest, DeleteRunsResponse
+from ..auth.dependencies import get_current_user, get_current_admin_user
+from ..auth.models import User
 from ...models import RunStatus
 from ...engine import Engine
 from ...database import Database
@@ -28,6 +30,7 @@ def _run_to_response(run) -> RunResponse:
         status=run.status.value if hasattr(run.status, 'value') else run.status,
         log_file_path=run.log_file_path,
         attempt=run.attempt,
+        triggered_by=run.triggered_by,
         duration_seconds=duration
     )
 
@@ -38,7 +41,8 @@ async def list_runs(
     status: Optional[str] = Query(None, description="Filter by status"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Page size"),
-    database: Database = Depends(get_database)
+    database: Database = Depends(get_database),
+    current_user: User = Depends(get_current_user)
 ):
     """List workflow runs with optional filtering and pagination."""
     # Parse status filter
@@ -81,7 +85,8 @@ async def list_runs(
 @router.get("/{run_id}", response_model=RunResponse)
 async def get_run(
     run_id: int,
-    database: Database = Depends(get_database)
+    database: Database = Depends(get_database),
+    current_user: User = Depends(get_current_user)
 ):
     """Get details for a specific run."""
     run = database.get_run(run_id)
@@ -89,3 +94,38 @@ async def get_run(
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
     return _run_to_response(run)
+
+
+@router.delete("/cleanup", response_model=DeleteRunsResponse)
+async def delete_runs(
+    body: DeleteRunsRequest,
+    database: Database = Depends(get_database),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """Delete workflow runs by date range. Admin only.
+
+    Supports three filter modes:
+    - before only: delete runs started before the given datetime
+    - after only: delete runs started after the given datetime
+    - before + after: delete runs started between the two datetimes
+
+    Optionally filter by workflow name.
+    Also deletes associated log files from disk.
+    """
+    if not body.before and not body.after:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one of 'before' or 'after' must be provided"
+        )
+
+    result = database.delete_runs_by_date_range(
+        before=body.before,
+        after=body.after,
+        workflow_name=body.workflow_name
+    )
+
+    return DeleteRunsResponse(
+        deleted_count=result["deleted_count"],
+        deleted_log_files=result["deleted_log_files"],
+        errors=result["errors"]
+    )

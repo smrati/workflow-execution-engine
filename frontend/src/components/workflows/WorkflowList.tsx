@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Workflow } from '../../services/api';
 import StatusBadge from '../common/StatusBadge';
+import { useAuth } from '../../hooks/useAuth';
 
 interface WorkflowListProps {
   workflows: Workflow[];
@@ -8,6 +9,7 @@ interface WorkflowListProps {
 }
 
 export default function WorkflowList({ workflows, onTrigger }: WorkflowListProps) {
+  const { isViewer } = useAuth();
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <table className="min-w-full divide-y divide-gray-200">
@@ -63,7 +65,7 @@ export default function WorkflowList({ workflows, onTrigger }: WorkflowListProps
                   : 'Not scheduled'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                {onTrigger && (
+                {!isViewer && onTrigger && (
                   <button
                     onClick={() => onTrigger(workflow.name)}
                     disabled={!workflow.enabled}

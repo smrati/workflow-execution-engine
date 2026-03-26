@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { WorkflowDetail } from '../../services/api';
 import StatusBadge from '../common/StatusBadge';
+import { useTimezone } from '../../hooks/useTimezone';
+import { useAuth } from '../../hooks/useAuth';
 
 interface WorkflowCardProps {
   workflow: WorkflowDetail;
@@ -15,6 +17,8 @@ export default function WorkflowCard({
   onEnable,
   onDisable,
 }: WorkflowCardProps) {
+  const { formatDateTime } = useTimezone();
+  const { isViewer } = useAuth();
   return (
     <div className="bg-white rounded-lg shadow">
       <div className="px-6 py-4 border-b border-gray-200">
@@ -29,32 +33,34 @@ export default function WorkflowCard({
               <StatusBadge status={workflow.enabled ? 'enabled' : 'disabled'} size="sm" />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {onTrigger && (
-              <button
-                onClick={onTrigger}
-                className="px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
-                disabled={!workflow.enabled}
-              >
-                Run Now
-              </button>
-            )}
-            {workflow.enabled ? (
-              <button
-                onClick={onDisable}
-                className="px-3 py-1 text-sm text-red-600 hover:text-red-900"
-              >
-                Disable
-              </button>
-            ) : (
-              <button
-                onClick={onEnable}
-                className="px-3 py-1 text-sm text-green-600 hover:text-green-900"
-              >
-                Enable
-              </button>
-            )}
-          </div>
+          {!isViewer && (
+            <div className="flex items-center gap-2">
+              {onTrigger && (
+                <button
+                  onClick={onTrigger}
+                  className="px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50"
+                  disabled={!workflow.enabled}
+                >
+                  Run Now
+                </button>
+              )}
+              {workflow.enabled ? (
+                <button
+                  onClick={onDisable}
+                  className="px-3 py-1 text-sm text-red-600 hover:text-red-900"
+                >
+                  Disable
+                </button>
+              ) : (
+                <button
+                  onClick={onEnable}
+                  className="px-3 py-1 text-sm text-green-600 hover:text-green-900"
+                >
+                  Enable
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -89,7 +95,7 @@ export default function WorkflowCard({
           <div>
             <p className="text-xs font-medium text-gray-500">Next Run</p>
             <p className="text-sm text-gray-900">
-              {new Date(workflow.next_run).toLocaleString()}
+              {formatDateTime(workflow.next_run)}
             </p>
           </div>
         )}

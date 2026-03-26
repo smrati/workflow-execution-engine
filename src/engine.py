@@ -248,7 +248,7 @@ class Engine:
 
         return True
 
-    async def run_workflow_with_retry(self, workflow: Workflow):
+    async def run_workflow_with_retry(self, workflow: Workflow, triggered_by: Optional[str] = None):
         """Run a workflow with retry support."""
         max_attempts = workflow.retry_count + 1
         attempt = 1
@@ -256,7 +256,7 @@ class Engine:
         while attempt <= max_attempts:
             # Acquire semaphore to limit concurrency
             async with self._semaphore:
-                result = await self.executor.execute(workflow, attempt, max_attempts)
+                result = await self.executor.execute(workflow, attempt, max_attempts, triggered_by)
 
             if result.success:
                 self.engine_logger.info(
@@ -288,10 +288,10 @@ class Engine:
                 )
                 return
 
-    async def run_workflow(self, workflow: Workflow):
+    async def run_workflow(self, workflow: Workflow, triggered_by: Optional[str] = None):
         """Run a single workflow with semaphore for concurrency control."""
         try:
-            await self.run_workflow_with_retry(workflow)
+            await self.run_workflow_with_retry(workflow, triggered_by)
         except Exception as e:
             self.engine_logger.error(f"Error running workflow '{workflow.name}': {e}")
 
