@@ -5,6 +5,8 @@ from fastapi import APIRouter, HTTPException, Depends
 
 from ..dependencies import get_database
 from ..schemas import LogResponse
+from ..auth.dependencies import get_current_user
+from ..auth.models import User
 from ...database import Database
 
 router = APIRouter()
@@ -13,7 +15,8 @@ router = APIRouter()
 @router.get("/{run_id}", response_model=LogResponse)
 async def get_run_log(
     run_id: int,
-    database: Database = Depends(get_database)
+    database: Database = Depends(get_database),
+    current_user: User = Depends(get_current_user)
 ):
     """Get the log content for a specific run."""
     run = database.get_run(run_id)
