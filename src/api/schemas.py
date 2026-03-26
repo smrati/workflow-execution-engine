@@ -61,6 +61,7 @@ class RunBase(BaseModel):
     status: str
     log_file_path: Optional[str] = None
     attempt: int = 1
+    triggered_by: Optional[str] = None
 
 
 class RunResponse(RunBase):

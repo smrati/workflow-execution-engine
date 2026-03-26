@@ -10,6 +10,8 @@ from ..schemas import (
     WorkflowEnableRequest,
 )
 from ..websocket import get_manager
+from ..auth.dependencies import get_current_user
+from ..auth.models import User
 from ...models import RunStatus
 from ...engine import Engine
 from ...scheduler import Scheduler
@@ -20,7 +22,8 @@ router = APIRouter()
 @router.get("", response_model=list[WorkflowResponse])
 async def list_workflows(
     enabled_only: bool = False,
-    engine: Engine = Depends(get_engine)
+    engine: Engine = Depends(get_engine),
+    current_user: User = Depends(get_current_user)
 ):
     """List all workflows."""
     workflows = []
@@ -48,7 +51,8 @@ async def list_workflows(
 @router.get("/{name}", response_model=WorkflowDetailResponse)
 async def get_workflow(
     name: str,
-    engine: Engine = Depends(get_engine)
+    engine: Engine = Depends(get_engine),
+    current_user: User = Depends(get_current_user)
 ):
     """Get details for a specific workflow."""
     workflow = engine.get_workflow(name)
@@ -77,7 +81,8 @@ async def get_workflow(
 @router.get("/{name}/schedule")
 async def get_workflow_schedule(
     name: str,
-    engine: Engine = Depends(get_engine)
+    engine: Engine = Depends(get_engine),
+    current_user: User = Depends(get_current_user)
 ):
     """Get schedule information for a workflow."""
     workflow = engine.get_workflow(name)
@@ -90,7 +95,8 @@ async def get_workflow_schedule(
 @router.post("/{name}/run")
 async def trigger_workflow_run(
     name: str,
-    engine: Engine = Depends(get_engine)
+    engine: Engine = Depends(get_engine),
+    current_user: User = Depends(get_current_user)
 ):
     """Manually trigger a workflow run."""
     workflow = engine.get_workflow(name)
@@ -105,7 +111,7 @@ async def trigger_workflow_run(
 
     # Create a task to run the workflow
     import asyncio
-    task = asyncio.create_task(engine.run_workflow(workflow))
+    task = asyncio.create_task(engine.run_workflow(workflow, triggered_by=current_user.username))
 
     return {
         "message": f"Workflow '{name}' triggered",
@@ -116,7 +122,8 @@ async def trigger_workflow_run(
 @router.put("/{name}/enable")
 async def enable_workflow(
     name: str,
-    engine: Engine = Depends(get_engine)
+    engine: Engine = Depends(get_engine),
+    current_user: User = Depends(get_current_user)
 ):
     """Enable a workflow."""
     workflow = engine.get_workflow(name)
@@ -140,7 +147,8 @@ async def enable_workflow(
 @router.put("/{name}/disable")
 async def disable_workflow(
     name: str,
-    engine: Engine = Depends(get_engine)
+    engine: Engine = Depends(get_engine),
+    current_user: User = Depends(get_current_user)
 ):
     """Disable a workflow."""
     workflow = engine.get_workflow(name)

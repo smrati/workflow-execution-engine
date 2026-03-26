@@ -84,7 +84,8 @@ class WorkflowRun:
     exit_code: Optional[int] = None
     status: RunStatus = RunStatus.RUNNING
     log_file_path: Optional[str] = None
-    attempt: int = 1  # Retry attempt number (1 = first attempt)
+    attempt: int = 1
+    triggered_by: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "WorkflowRun":
@@ -99,6 +100,7 @@ class WorkflowRun:
             status=RunStatus(data.get("status", "running")),
             log_file_path=data.get("log_file_path"),
             attempt=data.get("attempt", 1),
+            triggered_by=data.get("triggered_by"),
         )
 
 

@@ -3,9 +3,12 @@
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from .models import RunStatus, WorkflowRun
+
+if TYPE_CHECKING:
+    from .api.auth.models import User
 
 
 class Database:
@@ -62,6 +65,9 @@ class Database:
             columns = [col[1] for col in cursor.fetchall()]
             if 'attempt' not in columns:
                 cursor.execute("ALTER TABLE workflow_runs ADD COLUMN attempt INTEGER DEFAULT 1")
+            
+            if 'triggered_by' not in columns:
+                cursor.execute("ALTER TABLE workflow_runs ADD COLUMN triggered_by TEXT")
 
         # Create index for faster queries by workflow name
         cursor.execute("""
@@ -83,12 +89,41 @@ class Database:
 
         conn.commit()
 
+        self._init_users_table(conn)
+
+    def _init_users_table(self, conn):
+        """Initialize users table."""
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'normal',
+                created_at TEXT NOT NULL
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_users_username 
+            ON users(username)
+        """)
+        
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [col[1] for col in cursor.fetchall()]
+        if 'role' not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'normal'")
+        
+        conn.commit()
+
     def start_run(
         self,
         workflow_name: str,
         command: str,
         log_file_path: str,
-        attempt: int = 1
+        attempt: int = 1,
+        triggered_by: Optional[str] = None
     ) -> int:
         """Record the start of a workflow run and return the run ID."""
         conn = self._get_connection()
@@ -96,19 +131,20 @@ class Database:
 
         cursor.execute("""
             INSERT INTO workflow_runs 
-            (workflow_name, command, start_time, status, log_file_path, attempt)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (workflow_name, command, start_time, status, log_file_path, attempt, triggered_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             workflow_name,
             command,
             datetime.now().isoformat(),
             RunStatus.RUNNING.value,
             log_file_path,
-            attempt
+            attempt,
+            triggered_by
         ))
 
         conn.commit()
-        return cursor.lastrowid
+        return cursor.lastrowid or 0
 
     def complete_run(
         self,
@@ -237,6 +273,104 @@ class Database:
         conn.commit()
         
         return deleted_count
+
+    def create_user(self, username: str, hashed_password: str, role: str = "normal") -> "User":
+        """Create a new user and return the User object."""
+        from .api.auth.models import User, UserRole
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        now = datetime.now().isoformat()
+        
+        cursor.execute("""
+            INSERT INTO users (username, hashed_password, role, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (username, hashed_password, role, now))
+        
+        conn.commit()
+        user_id = cursor.lastrowid
+        
+        return User(
+            id=user_id,
+            username=username,
+            hashed_password=hashed_password,
+            role=UserRole(role),
+            created_at=datetime.fromisoformat(now)
+        )
+
+    def get_user_count(self) -> int:
+        """Get total number of users."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT COUNT(*) as count FROM users")
+        row = cursor.fetchone()
+        return row["count"] if row else 0
+
+    def get_all_users(self) -> list["User"]:
+        """Get all users (for admin)."""
+        from .api.auth.models import User
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM users ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        return [User.from_dict(dict(row)) for row in rows]
+
+    def update_user_role(self, user_id: int, role: str) -> bool:
+        """Update a user's role."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            UPDATE users SET role = ? WHERE id = ?
+        """, (role, user_id))
+        
+        conn.commit()
+        return cursor.rowcount > 0
+
+    def delete_user(self, user_id: int) -> bool:
+        """Delete a user."""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+    def get_user_by_username(self, username: str) -> "User | None":
+        """Get a user by username."""
+        from .api.auth.models import User
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM users WHERE username = ?
+        """, (username,))
+        
+        row = cursor.fetchone()
+        if row:
+            return User.from_dict(dict(row))
+        return None
+
+    def get_user_by_id(self, user_id: int) -> "User | None":
+        """Get a user by ID."""
+        from .api.auth.models import User
+        
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT * FROM users WHERE id = ?
+        """, (user_id,))
+        
+        row = cursor.fetchone()
+        if row:
+            return User.from_dict(dict(row))
+        return None
 
     def close(self):
         """Close the database connection."""
