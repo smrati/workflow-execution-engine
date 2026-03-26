@@ -89,6 +89,29 @@ class RunFilterParams(BaseModel):
     page_size: int = Field(default=20, ge=1, le=100)
 
 
+class DeleteRunsRequest(BaseModel):
+    """Request to delete runs by date range."""
+    before: Optional[str] = Field(
+        None,
+        description="Delete runs started before this ISO datetime (exclusive)"
+    )
+    after: Optional[str] = Field(
+        None,
+        description="Delete runs started after this ISO datetime (exclusive)"
+    )
+    workflow_name: Optional[str] = Field(
+        None,
+        description="Optional workflow name filter"
+    )
+
+
+class DeleteRunsResponse(BaseModel):
+    """Response after deleting runs."""
+    deleted_count: int
+    deleted_log_files: int
+    errors: List[str]
+
+
 # ============ Stats Schemas ============
 
 class WorkflowStatsResponse(BaseModel):

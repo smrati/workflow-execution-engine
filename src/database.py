@@ -252,6 +252,86 @@ class Database:
 
         return [row["workflow_name"] for row in cursor.fetchall()]
 
+    def delete_runs_by_date_range(
+        self,
+        before: Optional[str] = None,
+        after: Optional[str] = None,
+        workflow_name: Optional[str] = None
+    ) -> dict:
+        """Delete workflow runs by date range and optionally by workflow name.
+
+        Supports three modes:
+          - before only: delete runs started before the given datetime
+          - after only: delete runs started after the given datetime
+          - before + after: delete runs started between the two datetimes
+
+        Also deletes associated log files from disk.
+
+        Args:
+            before: ISO format datetime string (exclusive upper bound)
+            after: ISO format datetime string (exclusive lower bound)
+            workflow_name: Optional workflow name to filter
+
+        Returns:
+            dict with deleted_count, deleted_log_files, errors
+        """
+        import os as _os
+
+        conditions = []
+        params = []
+
+        if before:
+            conditions.append("start_time < ?")
+            params.append(before)
+
+        if after:
+            conditions.append("start_time > ?")
+            params.append(after)
+
+        if workflow_name:
+            conditions.append("workflow_name = ?")
+            params.append(workflow_name)
+
+        if not conditions:
+            return {"deleted_count": 0, "deleted_log_files": 0, "errors": []}
+
+        where_clause = " AND ".join(conditions)
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            f"SELECT id, log_file_path FROM workflow_runs WHERE {where_clause}",
+            params
+        )
+        rows = cursor.fetchall()
+
+        deleted_log_files = 0
+        errors = []
+
+        for row in rows:
+            log_path = row["log_file_path"]
+            if log_path:
+                try:
+                    if _os.path.exists(log_path):
+                        _os.remove(log_path)
+                        deleted_log_files += 1
+                except Exception as e:
+                    errors.append(f"Failed to delete log file {log_path}: {e}")
+
+        cursor.execute(
+            f"DELETE FROM workflow_runs WHERE {where_clause}",
+            params
+        )
+        deleted_count = cursor.rowcount
+        conn.commit()
+
+        return {
+            "deleted_count": deleted_count,
+            "deleted_log_files": deleted_log_files,
+            "errors": errors
+        }
+
     def cleanup_old_runs(self, days_to_keep: int = 30) -> int:
         """Delete runs older than the specified number of days.
         
