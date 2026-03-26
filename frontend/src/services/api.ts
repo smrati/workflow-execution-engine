@@ -88,6 +88,12 @@ export interface LogResponse {
   exists: boolean;
 }
 
+export interface DeleteRunsResponse {
+  deleted_count: number;
+  deleted_log_files: number;
+  errors: string[];
+}
+
 const api = {
   async getWorkflows(enabledOnly = false): Promise<Workflow[]> {
     const response = await axios.get(`${API_BASE}/workflows`, {
@@ -175,6 +181,18 @@ const api = {
 
   async getRunLog(runId: number): Promise<LogResponse> {
     const response = await axios.get(`${API_BASE}/logs/${runId}`, {
+      headers: getAuthHeaders()
+    });
+    return response.data;
+  },
+
+  async deleteRuns(params: {
+    before?: string;
+    after?: string;
+    workflow_name?: string;
+  }): Promise<DeleteRunsResponse> {
+    const response = await axios.delete(`${API_BASE}/runs/cleanup`, {
+      data: params,
       headers: getAuthHeaders()
     });
     return response.data;

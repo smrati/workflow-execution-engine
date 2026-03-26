@@ -4,8 +4,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 
 from ..dependencies import get_engine, get_database
-from ..schemas import RunResponse, RunListResponse
-from ..auth.dependencies import get_current_user
+from ..schemas import RunResponse, RunListResponse, DeleteRunsRequest, DeleteRunsResponse
+from ..auth.dependencies import get_current_user, get_current_admin_user
 from ..auth.models import User
 from ...models import RunStatus
 from ...engine import Engine
@@ -94,3 +94,38 @@ async def get_run(
         raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
     return _run_to_response(run)
+
+
+@router.delete("/cleanup", response_model=DeleteRunsResponse)
+async def delete_runs(
+    body: DeleteRunsRequest,
+    database: Database = Depends(get_database),
+    current_user: User = Depends(get_current_admin_user)
+):
+    """Delete workflow runs by date range. Admin only.
+
+    Supports three filter modes:
+    - before only: delete runs started before the given datetime
+    - after only: delete runs started after the given datetime
+    - before + after: delete runs started between the two datetimes
+
+    Optionally filter by workflow name.
+    Also deletes associated log files from disk.
+    """
+    if not body.before and not body.after:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one of 'before' or 'after' must be provided"
+        )
+
+    result = database.delete_runs_by_date_range(
+        before=body.before,
+        after=body.after,
+        workflow_name=body.workflow_name
+    )
+
+    return DeleteRunsResponse(
+        deleted_count=result["deleted_count"],
+        deleted_log_files=result["deleted_log_files"],
+        errors=result["errors"]
+    )

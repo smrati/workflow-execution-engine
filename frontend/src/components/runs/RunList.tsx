@@ -4,25 +4,31 @@ import api, { Run, RunListResponse, Workflow } from '../../services/api';
 import StatusBadge from '../common/StatusBadge';
 import Pagination from '../common/Pagination';
 import RunFilters from './RunFilters';
+import CleanupRunsModal from './CleanupRunsModal';
 import { useTimezone } from '../../hooks/useTimezone';
+import { useAuth } from '../../hooks/useAuth';
 
 export default function RunList() {
   const { formatDateTime } = useTimezone();
+  const { isAdmin } = useAuth();
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [workflows, setWorkflows] = useState<string[]>([]);
+  const [workflowObjects, setWorkflowObjects] = useState<Workflow[]>([]);
   const [filters, setFilters] = useState({
     workflow: '',
     status: '',
   });
+  const [showCleanup, setShowCleanup] = useState(false);
 
   // Load workflows for filter dropdown
   useEffect(() => {
     const loadWorkflows = async () => {
       try {
         const data = await api.getWorkflows();
+        setWorkflowObjects(data);
         setWorkflows(data.map((w: Workflow) => w.name));
       } catch (err) {
         console.error('Failed to load workflows:', err);
@@ -68,6 +74,29 @@ export default function RunList() {
     setCurrentPage(1);
   };
 
+  const handleDeleted = () => {
+    setShowCleanup(false);
+    setCurrentPage(1);
+    const loadRuns = async () => {
+      setLoading(true);
+      try {
+        const data: RunListResponse = await api.getRuns({
+          workflow_name: filters.workflow || undefined,
+          status: filters.status || undefined,
+          page: 1,
+          page_size: 20,
+        });
+        setRuns(data.runs);
+        setTotalPages(data.total_pages);
+      } catch (err) {
+        console.error('Failed to load runs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRuns();
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -80,6 +109,14 @@ export default function RunList() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Run History</h1>
+        {isAdmin && (
+          <button
+            onClick={() => setShowCleanup(true)}
+            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Cleanup Runs
+          </button>
+        )}
       </div>
 
       <RunFilters
@@ -177,6 +214,12 @@ export default function RunList() {
           </div>
         </>
       )}
+      <CleanupRunsModal
+        isOpen={showCleanup}
+        onClose={() => setShowCleanup(false)}
+        onDeleted={handleDeleted}
+        workflows={workflowObjects}
+      />
     </div>
   );
 }
