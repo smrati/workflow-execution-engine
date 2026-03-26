@@ -4,8 +4,10 @@ import api, { Run, RunListResponse, Workflow } from '../../services/api';
 import StatusBadge from '../common/StatusBadge';
 import Pagination from '../common/Pagination';
 import RunFilters from './RunFilters';
+import { useTimezone } from '../../hooks/useTimezone';
 
 export default function RunList() {
+  const { formatDateTime } = useTimezone();
   const [runs, setRuns] = useState<Run[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalPages, setTotalPages] = useState(1);
@@ -117,6 +119,9 @@ export default function RunList() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Duration
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Triggered By
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -147,12 +152,15 @@ export default function RunList() {
                       <StatusBadge status={run.status} size="sm" />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(run.start_time).toLocaleString()}
+                      {formatDateTime(run.start_time)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {run.duration_seconds !== null && run.duration_seconds !== undefined
                         ? `${run.duration_seconds.toFixed(2)}s`
                         : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {run.triggered_by || <span className="text-gray-400">cron</span>}
                     </td>
                   </tr>
                 ))}

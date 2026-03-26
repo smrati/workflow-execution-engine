@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { WorkflowDetail } from '../../services/api';
 import StatusBadge from '../common/StatusBadge';
+import { useTimezone } from '../../hooks/useTimezone';
 
 interface WorkflowCardProps {
   workflow: WorkflowDetail;
@@ -15,6 +16,7 @@ export default function WorkflowCard({
   onEnable,
   onDisable,
 }: WorkflowCardProps) {
+  const { formatDateTime } = useTimezone();
   return (
     <div className="bg-white rounded-lg shadow">
       <div className="px-6 py-4 border-b border-gray-200">
@@ -89,7 +91,7 @@ export default function WorkflowCard({
           <div>
             <p className="text-xs font-medium text-gray-500">Next Run</p>
             <p className="text-sm text-gray-900">
-              {new Date(workflow.next_run).toLocaleString()}
+              {formatDateTime(workflow.next_run)}
             </p>
           </div>
         )}
