@@ -9,6 +9,8 @@ from ..schemas import (
     OverviewStatsResponse,
     RunResponse,
 )
+from ..auth.dependencies import get_current_user
+from ..auth.models import User
 from ...engine import Engine
 from ...database import Database
 from ...models import RunStatus
@@ -38,7 +40,8 @@ def _run_to_response(run) -> RunResponse:
 
 @router.get("/engine", response_model=EngineStatusResponse)
 async def get_engine_status(
-    engine: Engine = Depends(get_engine)
+    engine: Engine = Depends(get_engine),
+    current_user: User = Depends(get_current_user)
 ):
     """Get the current status of the engine."""
     uptime = None
@@ -58,7 +61,8 @@ async def get_engine_status(
 @router.get("/workflows/{name}", response_model=WorkflowStatsResponse)
 async def get_workflow_stats(
     name: str,
-    engine: Engine = Depends(get_engine)
+    engine: Engine = Depends(get_engine),
+    current_user: User = Depends(get_current_user)
 ):
     """Get statistics for a specific workflow."""
     workflow = engine.get_workflow(name)
@@ -83,7 +87,8 @@ async def get_workflow_stats(
 @router.get("/overview", response_model=OverviewStatsResponse)
 async def get_overview_stats(
     engine: Engine = Depends(get_engine),
-    database: Database = Depends(get_database)
+    database: Database = Depends(get_database),
+    current_user: User = Depends(get_current_user)
 ):
     """Get dashboard overview statistics."""
     # Get total runs and status breakdown

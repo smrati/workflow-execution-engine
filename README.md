@@ -12,6 +12,148 @@ A cron-based workflow execution engine for scheduling and running commands with 
 - **REST API**: Full-featured API for programmatic access
 - **Real-time Updates**: WebSocket support for live status updates
 - **Graceful Shutdown**: Handles SIGINT/SIGTERM for clean shutdown
+- **Authentication**: JWT-based authentication for secure access
+
+## Authentication
+
+The system uses **JWT (JSON Web Token)** based authentication with role-based access control.
+
+### User Roles
+
+| Role | Description | Permissions |
+|------|-------------|-------------|
+| **admin** | Administrator | Full access + user management |
+| **normal** | Regular user | Access to workflows and runs |
+
+### Role-Based Access Control
+
+- **First user registration** → automatically becomes **admin**
+- **Subsequent registrations** → disabled (admin must create users)
+- **Admin users** can:
+  - Create new users (admin or normal role)
+  - Update user roles
+  - Delete users
+  - Access all normal user features
+- **Normal users** can:
+  - View workflows and runs
+  - Trigger workflow executions
+  - Enable/disable workflows
+
+### Authentication Endpoints
+
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|--------|
+| POST | `/api/auth/register` | Register first user (admin) | Public (first user only) |
+| POST | `/api/auth/login` | Login and get tokens | Public |
+| POST | `/api/auth/refresh` | Refresh access token | Public (with refresh token) |
+| GET | `/api/auth/me` | Get current user info | Authenticated |
+| POST | `/api/auth/users` | Create new user | Admin only |
+| GET | `/api/auth/users` | List all users | Admin only |
+| PUT | `/api/auth/users/{id}/role` | Update user role | Admin only |
+| DELETE | `/api/auth/users/{id}` | Delete user | Admin only |
+
+### Token Types
+
+- **Access Token**: Valid for 15 minutes, used for API authentication
+- **Refresh Token**: Valid for 7 days, used to obtain new access tokens
+
+### First-Time Setup
+
+1. Start the backend server
+2. Navigate to `http://localhost:5173`
+3. The first registration will create an **admin** account
+4. All subsequent registrations are disabled
+5. Admin can create additional users via the User Management page
+
+### Creating Users as Admin
+
+1. Login with admin account
+2. Click "User Management" in the header
+3. Click "Create User"
+4. Enter username, password, and select role
+5. Click "Create User"
+
+### Authentication Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Login     │────►│  Get Token  │────►│   Access    │
+│  (username/ │     │ (access +   │     │   Protected │
+│   password) │     │  refresh)   │     │   Routes    │
+└─────────────┘     └─────────────┘     └─────────────┘
+                          │
+                          ▼
+                   ┌─────────────┐
+                   │   Token      │
+                   │   Refresh    │
+                   │ (auto renew) │
+                   └─────────────┘
+```
+
+### Security Notes
+
+- All `/api/auth/*` endpoints except `/register` (after first user) and `/login` are public
+- All other `/api/*` endpoints require a valid JWT access token
+- Tokens are stored in browser localStorage
+- The `Authorization: Bearer <token>` header is automatically added to all API requests
+- Sessions expire after 15 minutes of inactivity (access token)
+- Users are stored in the `users` table in SQLite database
+- First user is automatically assigned the **admin** role
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JWT_SECRET_KEY` | Secret key for JWT signing | `your-secret-key-change-in-production` |
+
+**Important**: Change `JWT_SECRET_KEY` in production environments!
+
+## Architecture Overview
+
+The system consists of **two separate components** that work together:
+
+### 1. Backend Server (`run_combined.py`)
+When you run `uv run python run_combined.py --port 8000 --config config.json`, it starts:
+
+| Component | Description |
+|-----------|-------------|
+| **Workflow Engine** | Executes scheduled workflows based on cron expressions from `config.json` |
+| **API Server** | REST API on port 8000 for programmatic access |
+| **WebSocket Server** | Real-time updates at `/ws` endpoint |
+| **Database** | SQLite storage for run history in `data/workflows.db` |
+| **Log Files** | Timestamped logs for each workflow run in `data/logs/` |
+
+**What happens when you run it:**
+1. Loads workflow definitions from `config.json`
+2. Schedules workflows based on their cron expressions
+3. Executes workflows when they become due
+4. Stores all run metadata and logs
+5. Serves REST API endpoints at `http://localhost:8000`
+6. Broadcasts real-time updates via WebSocket
+
+### 2. Frontend Dashboard (`frontend/`)
+A **separate React application** that provides the web UI:
+
+- **Must be started independently** with `cd frontend && npm run dev`
+- Runs on `http://localhost:5173`
+- Connects to the backend API at `http://localhost:8000`
+- Displays workflows, run history, logs, and real-time updates
+
+### Connection Diagram
+```
+┌─────────────────┐         ┌─────────────────┐
+│   Frontend UI   │  HTTP   │  Backend Server │
+│  (React + Vite) │◄───────►│ (FastAPI +      │
+│  :5173          │  WS     │  Workflow Engine)│
+└─────────────────┘         │  :8000          │
+                            └────────┬────────┘
+                                     │
+                            ┌────────▼────────┐
+                            │ config.json     │
+                            │ workflows.db    │
+                            │ logs/           │
+                            └─────────────────┘
+```
 
 ## How to Run the System
 
@@ -21,7 +163,48 @@ A cron-based workflow execution engine for scheduling and running commands with 
 - Node.js 18+ (for frontend)
 - uv (Python package manager)
 
+### Environment Setup
+
+Before running the system, you need to configure environment variables:
+
+1. **Copy the example file**:
+   ```bash
+   cp .env.example.sh .env.sh
+   ```
+
+2. **Edit `.env.sh` and set your values**:
+   ```bash
+   nano .env.sh  # or your preferred editor
+   ```
+
+3. **Generate a secure JWT secret key**:
+   ```bash
+   openssl rand -hex 32
+   ```
+   Copy the output and set it as `JWT_SECRET_KEY` in `.env.sh`
+
+4. **Source the environment file before starting**:
+   ```bash
+   source .env.sh
+   ```
+
+**Important**: The `.env.sh` file is in `.gitignore` and will not be committed to version control.
+
+### Required Environment Variables
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `JWT_SECRET_KEY` | Secret key for JWT token signing | **Yes** | `your-secret-key-change-in-production` |
+
 ### Quick Start (Two Terminals)
+
+**Step 0: Setup Environment**
+```bash
+# Copy and configure environment
+cp .env.example.sh .env.sh
+nano .env.sh  # Set your JWT_SECRET_KEY
+source .env.sh
+```
 
 **Step 1: Install Dependencies**
 ```bash
@@ -137,23 +320,63 @@ The UI receives real-time updates via WebSocket when:
 git clone <repository-url>
 cd workflow-execution-engine
 
-# 2. Install Python dependencies
+# 2. Setup environment variables
+cp .env.example.sh .env.sh
+# Edit .env.sh and set your JWT_SECRET_KEY (use: openssl rand -hex 32)
+source .env.sh
+
+# 3. Install Python dependencies
 uv sync
 
-# 3. Install frontend dependencies
+# 4. Install frontend dependencies
 cd frontend
 npm install
 cd ..
 
-# 4. Create your config.json from the example
+# 5. Create your config.json from the example
 cp config.example.json config.json
 
-# 5. Start the combined server (Engine + API)
+# 6. Start the combined server (Engine + API)
 uv run python run_combined.py
 
-# 6. In a new terminal, start the frontend
+# 7. In a new terminal, start the frontend
 cd frontend && npm run dev
 ```
+
+### Environment Variables Setup
+
+Before running the system, you must configure the environment variables:
+
+1. **Copy the example file:**
+   ```bash
+   cp .env.example.sh .env.sh
+   ```
+
+2. **Edit `.env.sh` and set your values:**
+   ```bash
+   nano .env.sh
+   ```
+
+3. **Generate a secure JWT secret key:**
+   ```bash
+   openssl rand -hex 32
+   ```
+
+4. **Source the environment file before starting:**
+   ```bash
+   source .env.sh
+   ```
+
+### Required Environment Variables
+
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `JWT_SECRET_KEY` | Secret key for JWT token signing | **Yes** | `your-secret-key-change-in-production` |
+
+**⚠️ Important**: 
+- **Never commit `.env.sh` to version control** (it's in `.gitignore`)
+- Always use a strong, unique `JWT_SECRET_KEY` in production
+- Source `.env.sh` in every terminal before running the application
 
 ### Access the Application
 
@@ -316,6 +539,8 @@ workflow-execution-engine/
 ├── run_api.py              # API-only server
 ├── cli.py                  # CLI management tool
 ├── config.example.json      # Workflow definitions (template)
+├── .env.example.sh         # Environment variables (template)
+├── .env.sh                 # Environment variables (local, gitignored)
 ├── pyproject.toml          # Project configuration
 ├── src/
 │   ├── __init__.py
@@ -331,6 +556,12 @@ workflow-execution-engine/
 │       ├── schemas.py      # Pydantic models
 │       ├── dependencies.py # Engine access
 │       ├── websocket.py    # WebSocket manager
+│       ├── auth/           # Authentication module
+│       │   ├── __init__.py
+│       │   ├── routes.py   # Auth endpoints
+│       │   ├── models.py   # User model
+│       │   ├── schemas.py  # Auth schemas
+│       │   └── dependencies.py # Auth dependencies
 │       └── routes/
 │           ├── workflows.py
 │           ├── runs.py
@@ -340,14 +571,14 @@ workflow-execution-engine/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── layout/     # Header, Sidebar, Layout
-│   │   │   ├── common/     # StatusBadge, Pagination
+│   │   │   ├── common/     # StatusBadge, Pagination, ProtectedRoute
 │   │   │   ├── dashboard/  # StatusCard, ActivityFeed
 │   │   │   ├── workflows/  # WorkflowList, WorkflowCard
 │   │   │   ├── runs/       # RunList, RunFilters
 │   │   │   └── logs/       # LogViewer
-│   │   ├── pages/          # Dashboard, Workflows, Runs
-│   │   ├── hooks/          # useWebSocket
-│   │   └── services/       # API client
+│   │   ├── pages/          # Dashboard, Workflows, Runs, Login, UserManagement
+│   │   ├── hooks/          # useWebSocket, useAuth
+│   │   └── services/       # API client, auth API
 │   ├── package.json
 │   └── vite.config.ts
 ├── data/
@@ -361,7 +592,25 @@ workflow-execution-engine/
 
 ## API Reference
 
-### REST Endpoints
+### Authentication Endpoints (Public)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register first user (becomes admin) |
+| POST | `/api/auth/login` | Login and get access token |
+| POST | `/api/auth/refresh` | Refresh access token |
+| GET | `/api/auth/me` | Get current user info |
+
+### Admin-Only Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/users` | Create new user |
+| GET | `/api/auth/users` | List all users |
+| PUT | `/api/auth/users/{id}/role` | Update user role |
+| DELETE | `/api/auth/users/{id}` | Delete user |
+
+### Workflow Endpoints (Protected)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -393,6 +642,16 @@ The WebSocket endpoint (`/ws`) broadcasts the following event types:
 ---
 
 ## Database Schema
+
+### `users` Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key |
+| username | TEXT | Unique username |
+| hashed_password | TEXT | Bcrypt hashed password |
+| role | TEXT | User role (`admin` or `normal`) |
+| created_at | TEXT | ISO format timestamp |
 
 ### `workflow_runs` Table
 
@@ -442,17 +701,28 @@ data/logs/
     └── 20260323_070000.log
 ```
 
-## Development
-
-### Running Tests
-
-```bash
-# Install dev dependencies
-uv sync --dev
-
-# Run tests
-uv run pytest
 ```
+
+### Troubleshooting
+
+#### Authentication Errors
+
+If you see authentication errors or "Could not validate credentials":
+
+1. **Ensure you sourced the environment file**
+   ```bash
+   source .env.sh
+   ```
+
+2. **Verify JWT_SECRET_KEY is set**
+   ```bash
+   echo $JWT_SECRET_KEY
+   ```
+
+3. **If problems persist, reset:**
+   - Delete `data/workflows.db`
+   - Restart the application
+   - Re-register users
 
 ### Adding New Workflows
 
