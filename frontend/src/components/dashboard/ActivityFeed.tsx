@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Run } from '../../services/api';
 import StatusBadge from '../common/StatusBadge';
+import { useTimezone } from '../../hooks/useTimezone';
 
 interface ActivityFeedProps {
   runs: Run[];
@@ -8,6 +9,7 @@ interface ActivityFeedProps {
 }
 
 export default function ActivityFeed({ runs, maxItems = 10 }: ActivityFeedProps) {
+  const { formatDateTime } = useTimezone();
   const items = runs.slice(0, maxItems);
 
   return (
@@ -27,7 +29,7 @@ export default function ActivityFeed({ runs, maxItems = 10 }: ActivityFeedProps)
               {run.command.length > 50 ? `${run.command.slice(0, 50)}...` : run.command}
             </span>
             <div className="flex items-center gap-2">
-              <span>{new Date(run.start_time).toLocaleString()}</span>
+              <span>{formatDateTime(run.start_time)}</span>
               {run.duration_seconds !== null && run.duration_seconds !== undefined && (
                 <span className="text-gray-400">({run.duration_seconds.toFixed(2)}s)</span>
               )}

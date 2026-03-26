@@ -3,8 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import api, { Run } from '../services/api';
 import StatusBadge from '../components/common/StatusBadge';
 import LogViewer from '../components/logs/LogViewer';
+import { useTimezone } from '../hooks/useTimezone';
 
 export default function RunDetail() {
+  const { formatDateTime } = useTimezone();
   const { id } = useParams<{ id: string }>();
   const [run, setRun] = useState<Run | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,14 +84,14 @@ export default function RunDetail() {
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-1">Started</h3>
               <p className="text-sm text-gray-600">
-                {new Date(run.start_time).toLocaleString()}
+                {formatDateTime(run.start_time)}
               </p>
             </div>
 
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-1">Ended</h3>
               <p className="text-sm text-gray-600">
-                {run.end_time ? new Date(run.end_time).toLocaleString() : 'Still running...'}
+                {run.end_time ? formatDateTime(run.end_time) : 'Still running...'}
               </p>
             </div>
 
@@ -108,6 +110,13 @@ export default function RunDetail() {
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-1">Attempt</h3>
               <p className="text-sm text-gray-600">{run.attempt}</p>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 mb-1">Triggered By</h3>
+              <p className="text-sm text-gray-600">
+                {run.triggered_by || <span className="text-gray-400">cron schedule</span>}
+              </p>
             </div>
           </div>
         </div>
