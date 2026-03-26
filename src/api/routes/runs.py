@@ -5,6 +5,8 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 
 from ..dependencies import get_engine, get_database
 from ..schemas import RunResponse, RunListResponse
+from ..auth.dependencies import get_current_user
+from ..auth.models import User
 from ...models import RunStatus
 from ...engine import Engine
 from ...database import Database
@@ -28,6 +30,7 @@ def _run_to_response(run) -> RunResponse:
         status=run.status.value if hasattr(run.status, 'value') else run.status,
         log_file_path=run.log_file_path,
         attempt=run.attempt,
+        triggered_by=run.triggered_by,
         duration_seconds=duration
     )
 
@@ -38,7 +41,8 @@ async def list_runs(
     status: Optional[str] = Query(None, description="Filter by status"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Page size"),
-    database: Database = Depends(get_database)
+    database: Database = Depends(get_database),
+    current_user: User = Depends(get_current_user)
 ):
     """List workflow runs with optional filtering and pagination."""
     # Parse status filter
@@ -81,7 +85,8 @@ async def list_runs(
 @router.get("/{run_id}", response_model=RunResponse)
 async def get_run(
     run_id: int,
-    database: Database = Depends(get_database)
+    database: Database = Depends(get_database),
+    current_user: User = Depends(get_current_user)
 ):
     """Get details for a specific run."""
     run = database.get_run(run_id)

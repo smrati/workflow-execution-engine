@@ -1,6 +1,12 @@
 import axios from 'axios';
 
 const API_BASE = '/api';
+const ACCESS_TOKEN_KEY = 'access_token';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export interface Workflow {
   name: string;
@@ -35,6 +41,7 @@ export interface Run {
   status: 'running' | 'success' | 'failed' | 'timeout' | 'retry';
   log_file_path: string | null;
   attempt: number;
+  triggered_by: string | null;
   duration_seconds: number | null;
 }
 
@@ -82,74 +89,94 @@ export interface LogResponse {
 }
 
 const api = {
-  // Workflows
   async getWorkflows(enabledOnly = false): Promise<Workflow[]> {
     const response = await axios.get(`${API_BASE}/workflows`, {
-      params: { enabled_only: enabledOnly }
+      params: { enabled_only: enabledOnly },
+      headers: getAuthHeaders()
     });
     return response.data;
   },
 
   async getWorkflow(name: string): Promise<WorkflowDetail> {
-    const response = await axios.get(`${API_BASE}/workflows/${encodeURIComponent(name)}`);
+    const response = await axios.get(`${API_BASE}/workflows/${encodeURIComponent(name)}`, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
   async getWorkflowSchedule(name: string): Promise<{ next_run: string | null; last_run: string | null }> {
-    const response = await axios.get(`${API_BASE}/workflows/${encodeURIComponent(name)}/schedule`);
+    const response = await axios.get(`${API_BASE}/workflows/${encodeURIComponent(name)}/schedule`, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
   async triggerWorkflow(name: string): Promise<{ message: string }> {
-    const response = await axios.post(`${API_BASE}/workflows/${encodeURIComponent(name)}/run`);
+    const response = await axios.post(`${API_BASE}/workflows/${encodeURIComponent(name)}/run`, {}, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
   async enableWorkflow(name: string): Promise<{ message: string; enabled: boolean }> {
-    const response = await axios.put(`${API_BASE}/workflows/${encodeURIComponent(name)}/enable`);
+    const response = await axios.put(`${API_BASE}/workflows/${encodeURIComponent(name)}/enable`, {}, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
   async disableWorkflow(name: string): Promise<{ message: string; enabled: boolean }> {
-    const response = await axios.put(`${API_BASE}/workflows/${encodeURIComponent(name)}/disable`);
+    const response = await axios.put(`${API_BASE}/workflows/${encodeURIComponent(name)}/disable`, {}, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
-  // Runs
   async getRuns(params: {
     workflow_name?: string;
     status?: string;
     page?: number;
     page_size?: number;
   } = {}): Promise<RunListResponse> {
-    const response = await axios.get(`${API_BASE}/runs`, { params });
+    const response = await axios.get(`${API_BASE}/runs`, { 
+      params,
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
   async getRun(id: number): Promise<Run> {
-    const response = await axios.get(`${API_BASE}/runs/${id}`);
+    const response = await axios.get(`${API_BASE}/runs/${id}`, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
-  // Stats
   async getEngineStatus(): Promise<EngineStatus> {
-    const response = await axios.get(`${API_BASE}/stats/engine`);
+    const response = await axios.get(`${API_BASE}/stats/engine`, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
   async getOverviewStats(): Promise<OverviewStats> {
-    const response = await axios.get(`${API_BASE}/stats/overview`);
+    const response = await axios.get(`${API_BASE}/stats/overview`, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
   async getWorkflowStats(name: string): Promise<WorkflowStats> {
-    const response = await axios.get(`${API_BASE}/stats/workflows/${encodeURIComponent(name)}`);
+    const response = await axios.get(`${API_BASE}/stats/workflows/${encodeURIComponent(name)}`, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 
-  // Logs
   async getRunLog(runId: number): Promise<LogResponse> {
-    const response = await axios.get(`${API_BASE}/logs/${runId}`);
+    const response = await axios.get(`${API_BASE}/logs/${runId}`, {
+      headers: getAuthHeaders()
+    });
     return response.data;
   },
 };
