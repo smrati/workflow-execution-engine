@@ -3,9 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../services/api';
 import type { WorkflowDetail as WorkflowDetailType } from '../services/api';
 import StatusBadge from '../components/common/StatusBadge';
+import { useAuth } from '../hooks/useAuth';
 
 export default function WorkflowDetail() {
   const { name } = useParams<{ name: string }>();
+  const { isViewer } = useAuth();
   const [workflow, setWorkflow] = useState<WorkflowDetailType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,23 +98,27 @@ export default function WorkflowDetail() {
             </div>
             <div className="flex items-center gap-2">
               <StatusBadge status={workflow.enabled ? 'enabled' : 'disabled'} />
-              <button
-                onClick={handleTrigger}
-                disabled={triggering || !workflow.enabled}
-                className="ml-2 px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {triggering ? 'Running...' : 'Run Now'}
-              </button>
-              <button
-                onClick={handleToggleEnabled}
-                className={`ml-2 px-3 py-1 text-sm rounded ${
-                  workflow.enabled
-                    ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                }`}
-              >
-                {workflow.enabled ? 'Disable' : 'Enable'}
-              </button>
+              {!isViewer && (
+                <>
+                  <button
+                    onClick={handleTrigger}
+                    disabled={triggering || !workflow.enabled}
+                    className="ml-2 px-3 py-1 text-sm bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {triggering ? 'Running...' : 'Run Now'}
+                  </button>
+                  <button
+                    onClick={handleToggleEnabled}
+                    className={`ml-2 px-3 py-1 text-sm rounded ${
+                      workflow.enabled
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                    }`}
+                  >
+                    {workflow.enabled ? 'Disable' : 'Enable'}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

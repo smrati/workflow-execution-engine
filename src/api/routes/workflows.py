@@ -10,7 +10,7 @@ from ..schemas import (
     WorkflowEnableRequest,
 )
 from ..websocket import get_manager
-from ..auth.dependencies import get_current_user
+from ..auth.dependencies import get_current_user, get_current_writable_user
 from ..auth.models import User
 from ...models import RunStatus
 from ...engine import Engine
@@ -96,7 +96,7 @@ async def get_workflow_schedule(
 async def trigger_workflow_run(
     name: str,
     engine: Engine = Depends(get_engine),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_writable_user)
 ):
     """Manually trigger a workflow run."""
     workflow = engine.get_workflow(name)
@@ -123,7 +123,7 @@ async def trigger_workflow_run(
 async def enable_workflow(
     name: str,
     engine: Engine = Depends(get_engine),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_writable_user)
 ):
     """Enable a workflow."""
     workflow = engine.get_workflow(name)
@@ -148,7 +148,7 @@ async def enable_workflow(
 async def disable_workflow(
     name: str,
     engine: Engine = Depends(get_engine),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_writable_user)
 ):
     """Disable a workflow."""
     workflow = engine.get_workflow(name)
