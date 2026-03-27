@@ -20,7 +20,7 @@ This is a self-hosted alternative to tools like Airflow (for simple use cases), 
 - **Parallel execution** with configurable concurrency limit (default: 10)
 - **Automatic retries** with configurable count and delay
 - **Command timeout** support per workflow
-- **Persistent run history** stored in SQLite
+- **Persistent run history** stored in SQLite or PostgreSQL
 - **Per-run log files** with timestamped output capture
 - **Real-time WebSocket updates** for live status changes
 - **JWT authentication** with role-based access control (admin, normal, viewer)
@@ -64,6 +64,7 @@ The system has two components:
 - Python 3.11+
 - Node.js 18+ (for frontend)
 - [uv](https://github.com/astral-sh/uv) (Python package manager)
+- PostgreSQL (optional, for production database)
 
 ### 1. Clone and Install
 
@@ -301,6 +302,7 @@ Connect to `ws://localhost:8000/ws` for real-time event broadcasts:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `JWT_SECRET_KEY` | Yes | `your-secret-key-change-in-production` | Secret key for signing JWT tokens |
+| `DATABASE_URL` | No | `sqlite+aiosqlite:///data/workflows.db` | SQLAlchemy database URL (SQLite or PostgreSQL) |
 
 Set via `.env.sh` (see `.env.example.sh` for template):
 ```bash
@@ -313,7 +315,65 @@ source .env.sh
 
 ## Database
 
-SQLite database at `data/workflows.db` (auto-created on first run).
+The engine uses SQLAlchemy Core, supporting **SQLite** (default) and **PostgreSQL**. Switch databases by setting the `DATABASE_URL` environment variable -- no code changes needed.
+
+### SQLite (Default)
+
+Zero configuration -- works out of the box. Best for single-instance deployments, development, and small workloads.
+
+```bash
+# Default -- nothing to configure
+uv run python run_combined.py
+```
+
+Database file: `data/workflows.db` (auto-created).
+
+### PostgreSQL
+
+For production, multi-instance deployments, or high-concurrency workloads.
+
+```bash
+# Set via environment variable
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/workflow_engine uv run python run_combined.py
+
+# Or via CLI flag
+uv run python run_combined.py --database-url "postgresql+asyncpg://user:pass@localhost:5432/workflow_engine"
+```
+
+**Setting up PostgreSQL:**
+
+```bash
+# Create database
+createdb workflow_engine
+
+# Or via Docker
+docker run -d \
+  --name workflow-pg \
+  -e POSTGRES_DB=workflow_engine \
+  -e POSTGRES_USER=workflow \
+  -e POSTGRES_PASSWORD=yourpassword \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+Then start the engine:
+```bash
+DATABASE_URL=postgresql+asyncpg://workflow:yourpassword@localhost:5432/workflow_engine \
+  uv run python run_combined.py
+```
+
+### Database URL Format
+
+| Database | URL Format |
+|----------|-----------|
+| SQLite (default) | `sqlite+aiosqlite:///data/workflows.db` |
+| PostgreSQL | `postgresql+asyncpg://user:pass@host:5432/dbname` |
+
+### Environment Variable
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | `sqlite+aiosqlite:///data/workflows.db` | SQLAlchemy database URL |
 
 ### Schema
 
@@ -416,7 +476,10 @@ workflow-execution-engine/
 |   +-- engine.py                # Orchestration and concurrency
 |   +-- scheduler.py             # Cron parsing and scheduling
 |   +-- executor.py              # Async command execution
-|   +-- database.py              # SQLite operations
+|   +-- database.py              # Legacy SQLite (deprecated, use src/db/)
+|   +-- db/
+|   |   +-- __init__.py          # Database factory (init_database, get_database)
+|   |   +-- database.py          # SQLAlchemy Core (SQLite + PostgreSQL)
 |   +-- logger.py                # Per-run and engine logging
 |   +-- models.py                # WorkflowRun, Workflow data models
 |   +-- api/
@@ -448,7 +511,7 @@ workflow-execution-engine/
 |   |   +-- services/            # api.ts, auth.ts
 |   +-- package.json
 +-- data/                        # Auto-created at runtime
-    +-- workflows.db             # SQLite database
+    +-- workflows.db             # SQLite database (when using SQLite)
     +-- logs/                    # Per-run log files
 ```
 
@@ -482,6 +545,13 @@ sqlite3 data/workflows.db "ALTER TABLE workflow_runs ADD COLUMN triggered_by TEX
 
 Or simply restart the backend -- the migration runs automatically on startup.
 
+### Migrating from SQLite to PostgreSQL
+
+1. Install PostgreSQL and create a database
+2. Set `DATABASE_URL` in your `.env.sh` or pass `--database-url`
+3. Start the engine -- tables are created automatically
+4. Note: existing SQLite data is not migrated automatically. Use a migration tool if needed.
+
 ### Adding/Modifying Workflows
 
 1. Edit `config.json`
@@ -506,7 +576,7 @@ Or simply restart the backend -- the migration runs automatically on startup.
 |-------|-----------|
 | Backend | Python, FastAPI, uvicorn, asyncio |
 | Scheduling | APScheduler-style cron parser |
-| Database | SQLite (stdlib) |
+| Database | SQLAlchemy Core (SQLite, PostgreSQL) |
 | Auth | JWT (python-jose), bcrypt |
 | Frontend | React 18, TypeScript, Vite 5 |
 | Styling | Tailwind CSS 3 |

@@ -15,5 +15,12 @@ export JWT_SECRET_KEY="your-super-secret-key-change-in-production"
 # Optional: Database path (default: data/workflows.db)
 # export DB_PATH="data/workflows.db"
 
+# Optional: SQLAlchemy database URL (overrides DB_PATH)
+# SQLite (default):
+#   DATABASE_URL=sqlite+aiosqlite:///data/workflows.db
+# PostgreSQL:
+#   DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/workflow_engine
+# export DATABASE_URL="sqlite+aiosqlite:///data/workflows.db"
+
 # Optional: Log directory (default: data/logs)
 # export LOG_DIR="data/logs"
