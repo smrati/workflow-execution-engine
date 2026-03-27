@@ -7,7 +7,7 @@ from ..dependencies import get_database
 from ..schemas import LogResponse
 from ..auth.dependencies import get_current_user
 from ..auth.models import User
-from ...database import Database
+from ...db.database import Database
 
 router = APIRouter()
 

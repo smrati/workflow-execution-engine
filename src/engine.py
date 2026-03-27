@@ -10,7 +10,7 @@ from typing import Optional, Callable, TYPE_CHECKING
 
 from croniter import croniter
 
-from .database import Database
+from .db import init_database, get_database
 from .executor import Executor
 from .logger import EngineLogger, WorkflowLogger
 from .models import RunStatus, Workflow, RunResult
@@ -27,6 +27,7 @@ class Engine:
         self,
         config_path: str = "config.json",
         db_path: str = "data/workflows.db",
+        database_url: str | None = None,
         log_dir: str = "data/logs",
         check_interval: float = 1.0,
         max_concurrent: int = 10
@@ -35,7 +36,8 @@ class Engine:
 
         Args:
             config_path: Path to the JSON configuration file
-            db_path: Path to the SQLite database file
+            db_path: Path to the SQLite database file (legacy, used if database_url is None)
+            database_url: SQLAlchemy database URL (takes precedence over db_path)
             log_dir: Directory for log files
             check_interval: How often to check for due workflows (seconds)
             max_concurrent: Maximum number of concurrent workflow executions
@@ -44,8 +46,12 @@ class Engine:
         self.check_interval = check_interval
         self.max_concurrent = max_concurrent
 
-        # Initialize components
-        self.database = Database(db_path)
+        if database_url is None:
+            database_url = f"sqlite+aiosqlite:///{db_path}"
+
+        init_database(database_url)
+        from .db import get_database
+        self.database = get_database()
         self.workflow_logger = WorkflowLogger(log_dir)
         self.engine_logger = EngineLogger(f"{log_dir}/engine.log")
         self.scheduler = Scheduler()

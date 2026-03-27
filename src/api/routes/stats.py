@@ -12,7 +12,7 @@ from ..schemas import (
 from ..auth.dependencies import get_current_user
 from ..auth.models import User
 from ...engine import Engine
-from ...database import Database
+from ...db.database import Database
 from ...models import RunStatus
 
 router = APIRouter()

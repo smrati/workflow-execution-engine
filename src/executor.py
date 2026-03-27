@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from .database import Database
+from .db.database import Database
 from .logger import WorkflowLogger
 from .models import RunResult, RunStatus, Workflow
 

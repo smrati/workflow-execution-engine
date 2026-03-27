@@ -4,7 +4,7 @@ from .models import Workflow, WorkflowRun, RunResult, RunStatus
 from .engine import Engine
 from .scheduler import Scheduler
 from .executor import Executor
-from .database import Database
+from .db import Database
 from .logger import WorkflowLogger, EngineLogger
 
 __version__ = "0.1.0"
