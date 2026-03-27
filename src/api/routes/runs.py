@@ -9,7 +9,7 @@ from ..auth.dependencies import get_current_user, get_current_admin_user
 from ..auth.models import User
 from ...models import RunStatus
 from ...engine import Engine
-from ...database import Database
+from ...db.database import Database
 
 router = APIRouter()
 

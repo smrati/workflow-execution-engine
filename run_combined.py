@@ -5,6 +5,7 @@ This runs both the workflow engine and the API server in the same process.
 
 import argparse
 import asyncio
+import os
 import signal
 import sys
 from datetime import datetime
@@ -26,6 +27,7 @@ class CombinedRunner:
         self,
         config_path: str = "config.json",
         db_path: str = "data/workflows.db",
+        database_url: str = None,
         log_dir: str = "data/logs",
         api_host: str = "0.0.0.0",
         api_port: int = 8000,
@@ -35,6 +37,7 @@ class CombinedRunner:
         """Initialize the combined runner."""
         self.config_path = config_path
         self.db_path = db_path
+        self.database_url = database_url
         self.log_dir = log_dir
         self.api_host = api_host
         self.api_port = api_port
@@ -62,7 +65,6 @@ class CombinedRunner:
         self.engine.engine_logger.info(f"Loaded {len(self.engine.workflows)} workflows")
         self.engine.engine_logger.info(f"Max concurrent executions: {self.engine.max_concurrent}")
 
-        # Log next run times
         for workflow in self.engine.workflows.values():
             next_run = self.engine.scheduler.get_next_run_time(workflow)
             if next_run:
@@ -75,17 +77,14 @@ class CombinedRunner:
 
         while not self._shutdown:
             try:
-                # Check for config changes
                 now = datetime.now()
                 if (now - last_config_check).total_seconds() >= config_check_interval:
                     if self.engine.reload_config():
-                        # Broadcast workflow changes
                         await self.broadcast_event("workflows_reloaded", {
                             "count": len(self.engine.workflows)
                         })
                     last_config_check = now
 
-                # Check for due workflows
                 due_workflows = self.engine.scheduler.get_due_workflows(
                     list(self.engine.workflows.values())
                 )
@@ -97,7 +96,6 @@ class CombinedRunner:
 
                     self.engine.scheduler.mark_run(workflow)
 
-                    # Start the workflow task
                     task = asyncio.create_task(
                         self.run_workflow_with_broadcast(workflow)
                     )
@@ -110,7 +108,6 @@ class CombinedRunner:
                 self.engine.engine_logger.error(f"Error in main loop: {e}")
                 await asyncio.sleep(self.engine.check_interval)
 
-        # Wait for running tasks
         if self.engine.running_tasks:
             self.engine.engine_logger.info(
                 f"Waiting for {len(self.engine.running_tasks)} running tasks..."
@@ -122,6 +119,8 @@ class CombinedRunner:
     async def run_workflow_with_broadcast(self, workflow):
         """Run a workflow and broadcast events."""
         from src.models import RunStatus
+        from src.db.database import workflow_runs
+        from sqlalchemy import select
 
         max_attempts = workflow.retry_count + 1
         attempt = 1
@@ -132,16 +131,20 @@ class CombinedRunner:
                     workflow, attempt, max_attempts
                 )
 
-                # Broadcast run completed event
+                run_id = None
+                if result.log_file_path:
+                    from src.db import get_database
+                    db = get_database()
+                    stmt = select(workflow_runs.c.id).where(
+                        workflow_runs.c.log_file_path == result.log_file_path
+                    )
+                    row = db._fetchone(stmt)
+                    if row:
+                        run_id = row["id"]
+
                 await self.broadcast_event("run_completed", {
                     "workflow_name": workflow.name,
-                    "run_id": self.engine.database.get_run(
-                        self.engine.database._get_connection()
-                        .execute(
-                            "SELECT id FROM workflow_runs WHERE log_file_path = ?",
-                            (result.log_file_path,)
-                        ).fetchone()[0]
-                    ).id if result.log_file_path else None,
+                    "run_id": run_id,
                     "status": result.status.value,
                     "exit_code": result.exit_code,
                     "duration_seconds": result.duration_seconds
@@ -180,10 +183,10 @@ class CombinedRunner:
         """Run both the engine and API server."""
         self.startup_time = datetime.now()
 
-        # Initialize engine
         self.engine = Engine(
             config_path=self.config_path,
             db_path=self.db_path,
+            database_url=self.database_url,
             log_dir=self.log_dir,
             check_interval=self.check_interval,
             max_concurrent=self.max_concurrent
@@ -255,7 +258,13 @@ def main():
         "--db-path",
         type=str,
         default="data/workflows.db",
-        help="Path to SQLite database"
+        help="Path to SQLite database (legacy, ignored if --database-url is set)"
+    )
+    parser.add_argument(
+        "--database-url",
+        type=str,
+        default=None,
+        help="SQLAlchemy database URL (e.g. postgresql+asyncpg://user:pass@localhost/dbname)"
     )
     parser.add_argument(
         "--log-dir",
@@ -293,6 +302,7 @@ def main():
     runner = CombinedRunner(
         config_path=args.config,
         db_path=args.db_path,
+        database_url=args.database_url or os.environ.get("DATABASE_URL"),
         log_dir=args.log_dir,
         api_host=args.host,
         api_port=args.port,
